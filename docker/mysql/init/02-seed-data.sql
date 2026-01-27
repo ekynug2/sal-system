@@ -240,7 +240,7 @@ INSERT INTO roles (code, name, description) VALUES
 -- Create admin user (password: admin123 - change in production!)
 -- Password hash for 'admin123' using bcrypt
 INSERT INTO users (email, password_hash, full_name, is_active) VALUES
-('admin@sal-system.local', '$2b$10$8OxlHPJRvwHN1l.1UGyzGejKj2F0K4MZYbxGdE/HpWxKZc3M5M.Wm', 'System Administrator', 1);
+('admin@sal-system.local', '$2b$10$g1zPCsvdIQ4e6q0QSGB3J.6iQsEK46wdGe7D..0S9P7q.mLYuV.bS', 'System Administrator', 1);
 
 -- Assign admin role
 INSERT INTO user_roles (user_id, role_id) VALUES

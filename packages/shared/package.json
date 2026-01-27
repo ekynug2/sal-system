@@ -1,0 +1,15 @@
+{
+    "name": "@sal/shared",
+    "version": "0.0.1",
+    "main": "index.ts",
+    "types": "index.ts",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "dependencies": {
+        "zod": "^4.3.6"
+    },
+    "devDependencies": {
+        "typescript": "^5.0.0"
+    }
+}
