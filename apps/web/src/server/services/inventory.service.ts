@@ -366,3 +366,234 @@ export async function checkStockAvailability(
         insufficientItems,
     };
 }
+// -----------------------------------------------------------------------------
+// Inventory Adjustment
+// -----------------------------------------------------------------------------
+
+export interface CreateInventoryAdjustmentInput {
+    adjDate: string;
+    adjustmentType: 'MANUAL' | 'OPNAME';
+    memo?: string;
+    lines: {
+        itemId: number;
+        qtyDelta: number; // For MANUAL: adjustment qty. For OPNAME: actual qty - system qty (calculated by caller or passed directly)
+        unitCost?: number; // Optional override, otherwise uses current avg cost
+        reasonCode: string; // 'DAMAGED', 'EXPIRED', 'FOUND', etc.
+        memo?: string;
+    }[];
+}
+
+interface InventoryAdjustmentRow extends RowDataPacket {
+    id: number;
+    adjustment_no: string;
+    adj_date: Date;
+    status: string;
+    adjustment_type: string;
+    memo: string | null;
+}
+
+export async function createInventoryAdjustment(
+    input: CreateInventoryAdjustmentInput,
+    userId: number
+): Promise<number> {
+    return transaction(async (connection) => {
+        // 1. Get next number
+        const adjNo = await getNextNumber(connection, SequenceKeys.ADJUSTMENT);
+
+        // 2. Insert header
+        const result = await executeTx(
+            connection,
+            `INSERT INTO inventory_adjustments 
+             (adjustment_no, adj_date, status, adjustment_type, memo, created_by, created_at, updated_at)
+             VALUES (?, ?, 'DRAFT', ?, ?, ?, NOW(), NOW())`,
+            [adjNo, input.adjDate, input.adjustmentType, input.memo || null, userId]
+        );
+        const adjId = result.insertId;
+
+        // 3. Insert lines
+        let lineNo = 1;
+        for (const line of input.lines) {
+            await executeTx(
+                connection,
+                `INSERT INTO inventory_adjustment_lines
+                 (adjustment_id, line_no, item_id, qty_delta, unit_cost, reason_code, memo)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    adjId,
+                    lineNo++,
+                    line.itemId,
+                    line.qtyDelta,
+                    line.unitCost || 0, // 0 means use current cost at posting time
+                    line.reasonCode,
+                    line.memo || null,
+                ]
+            );
+        }
+
+        // 4. Audit Log
+        await createAuditLogTx(connection, {
+            action: 'CREATE',
+            entityType: 'INVENTORY_ADJUSTMENT',
+            entityId: adjId,
+            actorUserId: userId,
+            metadata: { adjNo, type: input.adjustmentType, lineCount: input.lines.length },
+        });
+
+        return adjId;
+    });
+}
+
+export async function getInventoryAdjustments(params: {
+    page?: number;
+    limit?: number;
+}): Promise<{ adjustments: InventoryAdjustment[]; total: number }> {
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const offset = (page - 1) * limit;
+
+    const [countResult] = await query<RowDataPacket[]>(
+        'SELECT COUNT(*) as total FROM inventory_adjustments'
+    );
+    const total = countResult[0]?.total || 0;
+
+    const rows = await query<InventoryAdjustmentRow[]>(
+        `SELECT * FROM inventory_adjustments 
+         ORDER BY adj_date DESC, id DESC 
+         LIMIT ? OFFSET ?`,
+        [limit, offset]
+    );
+
+    const adjustments = rows.map(r => ({
+        id: r.id,
+        adjustmentNo: r.adjustment_no,
+        adjDate: r.adj_date.toISOString(),
+        status: r.status as any,
+        adjustmentType: r.adjustment_type as any,
+        memo: r.memo || undefined,
+        lines: [], // Lines fetched separately if needed, or join query
+    }));
+
+    return { adjustments, total };
+}
+
+export async function getInventoryAdjustment(id: number): Promise<InventoryAdjustment | null> {
+    const rows = await query<InventoryAdjustmentRow[]>(
+        'SELECT * FROM inventory_adjustments WHERE id = ?',
+        [id]
+    );
+
+    if (rows.length === 0) return null;
+    const r = rows[0];
+
+    // Get lines
+    const lineRows = await query<any[]>(
+        `SELECT ial.*, i.sku, i.name as item_name
+         FROM inventory_adjustment_lines ial
+         JOIN items i ON i.id = ial.item_id
+         WHERE ial.adjustment_id = ?
+         ORDER BY ial.line_no`,
+        [id]
+    );
+
+    const lines = lineRows.map(l => ({
+        lineNo: l.line_no,
+        itemId: l.item_id,
+        itemSku: l.sku,
+        itemName: l.item_name,
+        qtyBefore: 0, // Snapshot not stored currently, could add to table
+        qtyCounted: 0,
+        qtyDelta: Number(l.qty_delta),
+        unitCost: Number(l.unit_cost),
+        valueDelta: 0,
+        reasonCode: l.reason_code,
+        memo: l.memo || undefined,
+    }));
+
+    return {
+        id: r.id,
+        adjustmentNo: r.adjustment_no,
+        adjDate: r.adj_date.toISOString(),
+        status: r.status as any,
+        adjustmentType: r.adjustment_type as any,
+        memo: r.memo || undefined,
+        lines,
+    };
+}
+
+export async function postInventoryAdjustment(id: number, userId: number): Promise<void> {
+    return transaction(async (connection) => {
+        // 1. Get header & lock
+        const rows = await queryTx<InventoryAdjustmentRow[]>(
+            connection,
+            'SELECT * FROM inventory_adjustments WHERE id = ? FOR UPDATE',
+            [id]
+        );
+        if (rows.length === 0) throw new Error('Adjustment not found');
+        const adj = rows[0];
+
+        if (adj.status !== 'DRAFT') {
+            throw new Error(`Cannot post adjustment with status ${adj.status}`);
+        }
+
+        // 2. Get lines
+        const lines = await queryTx<any[]>(
+            connection,
+            'SELECT * FROM inventory_adjustment_lines WHERE adjustment_id = ? ORDER BY line_no',
+            [id]
+        );
+
+        // 3. Process each line
+        for (const line of lines) {
+            const qtyDelta = Number(line.qty_delta);
+            let unitCost = Number(line.unit_cost);
+
+            // If unitCost is 0 or negative qty, fetch current cost
+            if (unitCost === 0 || qtyDelta < 0) {
+                const itemStock = await getItemStock(line.item_id); // This is outside transaction context if we use exported function directy, be careful. Better re-implement basic query inside loop or pass connection
+                // Re-query safely within tx
+                const [itemRow] = await queryTx<RowDataPacket[]>(
+                    connection,
+                    'SELECT avg_cost FROM items WHERE id = ?',
+                    [line.item_id]
+                );
+                if (itemRow) unitCost = Number(itemRow.avg_cost);
+            }
+
+            // Update Stock
+            const { avgCostAfter } = await updateStock(connection, {
+                itemId: line.item_id,
+                qtyDelta: qtyDelta,
+                unitCost: unitCost,
+                sourceType: 'ADJUSTMENT',
+                sourceId: id,
+                sourceLineId: line.id,
+                memo: `Adj: ${adj.adjustment_no} - ${line.reason_code}`,
+            }, false); // Allow negative stock for adjustments usually? Maybe configurable. Let's allow explicit override
+
+            // Update line with actual cost used
+            await executeTx(
+                connection,
+                'UPDATE inventory_adjustment_lines SET unit_cost = ?, value_delta = ? WHERE id = ?',
+                [unitCost, qtyDelta * unitCost, line.id]
+            );
+        }
+
+        // 4. Update Header Status
+        await executeTx(
+            connection,
+            `UPDATE inventory_adjustments 
+             SET status = 'POSTED', posted_by = ?, posted_at = NOW(), updated_at = NOW() 
+             WHERE id = ?`,
+            [userId, id]
+        );
+
+        // 5. Audit Log
+        await createAuditLogTx(connection, {
+            action: 'POST',
+            entityType: 'INVENTORY_ADJUSTMENT',
+            entityId: id,
+            actorUserId: userId,
+            metadata: { adjNo: adj.adjustment_no },
+        });
+    });
+}

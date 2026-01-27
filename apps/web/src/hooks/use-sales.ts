@@ -41,6 +41,14 @@ export function useSalesInvoice(id: number) {
     });
 }
 
+export function useUnpaidInvoices(customerId: number | null) {
+    return useQuery({
+        queryKey: [...salesKeys.invoices(), 'unpaid', customerId],
+        queryFn: () => apiGet<SalesInvoice[]>(`/sales/invoices/unpaid`, { customerId: customerId ?? undefined }),
+        enabled: !!customerId,
+    });
+}
+
 interface CreateInvoiceInput {
     customerId: number;
     invoiceDate: string;

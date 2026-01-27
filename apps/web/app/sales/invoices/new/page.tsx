@@ -4,12 +4,14 @@
 // SAL Accounting System - Create Sales Invoice Page
 // =============================================================================
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/ui/providers/auth-provider';
 import { Sidebar } from '@/ui/components/sidebar';
 import { useCreateInvoice } from '@/hooks/use-sales';
+import { useCustomers, useItems } from '@/hooks/use-master-data';
 import { formatCurrency } from '@/lib/api-client';
+import { Item } from '@/shared/types';
 import {
     ArrowLeft,
     Plus,
@@ -31,27 +33,8 @@ interface InvoiceLine {
     taxCode: string;
     taxRate: number;
     description: string;
+    uomCode: string;
 }
-
-// Sample data - in production these would come from API
-const SAMPLE_CUSTOMERS = [
-    { id: 1, name: 'Restoran Sederhana', code: 'C00001' },
-    { id: 2, name: 'Toko Sembako Jaya', code: 'C00002' },
-    { id: 3, name: 'Hotel Bintang Lima', code: 'C00003' },
-    { id: 4, name: 'Warung Bu Siti', code: 'C00004' },
-];
-
-const SAMPLE_ITEMS = [
-    { id: 1, sku: 'FD-001', name: 'Beras Premium 5kg', price: 80000, taxCode: 'NON' },
-    { id: 2, sku: 'FD-002', name: 'Minyak Goreng 2L', price: 35000, taxCode: 'NON' },
-    { id: 3, sku: 'FD-003', name: 'Gula Pasir 1kg', price: 17000, taxCode: 'NON' },
-    { id: 4, sku: 'BV-001', name: 'Air Mineral 600ml (box)', price: 55000, taxCode: 'PPN11' },
-    { id: 5, sku: 'BV-002', name: 'Teh Botol 450ml (box)', price: 100000, taxCode: 'PPN11' },
-    { id: 6, sku: 'DY-001', name: 'Susu UHT Full Cream 1L', price: 260000, taxCode: 'NON' },
-    { id: 7, sku: 'MT-001', name: 'Ayam Potong Whole', price: 42000, taxCode: 'NON' },
-    { id: 8, sku: 'MT-002', name: 'Daging Sapi Has Dalam', price: 155000, taxCode: 'NON' },
-    { id: 9, sku: 'CD-001', name: 'Kecap Manis 600ml', price: 22000, taxCode: 'PPN11' },
-];
 
 const TAX_RATES: Record<string, number> = {
     'NON': 0,
@@ -68,6 +51,15 @@ export default function CreateInvoicePage() {
     const { user, isLoading: authLoading } = useAuth();
     const createInvoice = useCreateInvoice();
 
+    // Fetch master data
+    // Fetch generic lists for initial load. 
+    // In a real large-scale app, we might want async search, but for < 100 items/cust loaded by API by default, this is fine.
+    const { data: customersData, isLoading: custLoading } = useCustomers({ activeOnly: true });
+    const { data: itemsData, isLoading: itemsLoading } = useItems({ sellableOnly: true });
+
+    const customers = customersData || [];
+    const items = itemsData || [];
+
     const [customerId, setCustomerId] = useState<number | null>(null);
     const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
     const [dueDate, setDueDate] = useState(
@@ -75,7 +67,7 @@ export default function CreateInvoicePage() {
     );
     const [memo, setMemo] = useState('');
     const [lines, setLines] = useState<InvoiceLine[]>([
-        { id: generateId(), itemId: null, itemSku: '', itemName: '', qty: 1, unitPrice: 0, discountRate: 0, taxCode: 'PPN11', taxRate: 0.11, description: '' }
+        { id: generateId(), itemId: null, itemSku: '', itemName: '', qty: 1, unitPrice: 0, discountRate: 0, taxCode: 'PPN11', taxRate: 0.11, description: '', uomCode: '' }
     ]);
 
     const [itemSearch, setItemSearch] = useState('');
@@ -94,10 +86,20 @@ export default function CreateInvoicePage() {
         return null;
     }
 
+    // Set terms when customer changes
+    function handleCustomerChange(custId: number) {
+        setCustomerId(custId);
+        const cust = customers.find(c => c.id === custId);
+        if (cust) {
+            const due = new Date(new Date(invoiceDate).getTime() + (cust.termsDays * 24 * 60 * 60 * 1000));
+            setDueDate(due.toISOString().split('T')[0]);
+        }
+    }
+
     function addLine() {
         setLines([
             ...lines,
-            { id: generateId(), itemId: null, itemSku: '', itemName: '', qty: 1, unitPrice: 0, discountRate: 0, taxCode: 'PPN11', taxRate: 0.11, description: '' }
+            { id: generateId(), itemId: null, itemSku: '', itemName: '', qty: 1, unitPrice: 0, discountRate: 0, taxCode: 'PPN11', taxRate: 0.11, description: '', uomCode: '' }
         ]);
     }
 
@@ -112,7 +114,7 @@ export default function CreateInvoicePage() {
             if (l.id === id) {
                 const updated = { ...l, [field]: value };
                 if (field === 'taxCode') {
-                    updated.taxRate = TAX_RATES[value] || 0;
+                    updated.taxRate = TAX_RATES[value as string] || 0;
                 }
                 return updated;
             }
@@ -120,17 +122,19 @@ export default function CreateInvoicePage() {
         }));
     }
 
-    function selectItem(lineId: string, item: typeof SAMPLE_ITEMS[0]) {
+    function selectItem(lineId: string, item: Item) {
         setLines(lines.map(l => {
             if (l.id === lineId) {
+                const taxRate = TAX_RATES[item.taxCode] || 0;
                 return {
                     ...l,
                     itemId: item.id,
                     itemSku: item.sku,
                     itemName: item.name,
-                    unitPrice: item.price,
+                    unitPrice: item.sellingPrice,
                     taxCode: item.taxCode,
-                    taxRate: TAX_RATES[item.taxCode] || 0,
+                    taxRate: taxRate,
+                    uomCode: item.uomCode,
                 };
             }
             return l;
@@ -192,10 +196,13 @@ export default function CreateInvoicePage() {
         }
     }
 
-    const filteredItems = SAMPLE_ITEMS.filter(item =>
+    // Client-side filtering for dropdown
+    const filteredItems = items.filter(item =>
         item.sku.toLowerCase().includes(itemSearch.toLowerCase()) ||
         item.name.toLowerCase().includes(itemSearch.toLowerCase())
     );
+
+    const isDataLoading = custLoading || itemsLoading;
 
     return (
         <div className="app-layout">
@@ -231,7 +238,7 @@ export default function CreateInvoicePage() {
                             <button
                                 type="submit"
                                 className="btn btn-primary"
-                                disabled={createInvoice.isPending}
+                                disabled={createInvoice.isPending || isDataLoading}
                             >
                                 {createInvoice.isPending ? (
                                     <Loader2 className="animate-spin" size={18} />
@@ -242,6 +249,13 @@ export default function CreateInvoicePage() {
                             </button>
                         </div>
                     </div>
+
+                    {isDataLoading && (
+                        <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                            <Loader2 className="animate-spin" size={16} />
+                            <span style={{ fontSize: '0.875rem' }}>Loading master data...</span>
+                        </div>
+                    )}
 
                     {/* Invoice Details */}
                     <div className="card" style={{ marginBottom: 'var(--space-6)', padding: 'var(--space-5)' }}>
@@ -255,13 +269,14 @@ export default function CreateInvoicePage() {
                                 </label>
                                 <select
                                     value={customerId || ''}
-                                    onChange={(e) => setCustomerId(e.target.value ? Number(e.target.value) : null)}
+                                    onChange={(e) => handleCustomerChange(e.target.value ? Number(e.target.value) : 0)}
                                     required
+                                    style={{ width: '100%', padding: 'var(--space-2)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}
                                 >
                                     <option value="">Select customer...</option>
-                                    {SAMPLE_CUSTOMERS.map(c => (
+                                    {customers.map(c => (
                                         <option key={c.id} value={c.id}>
-                                            [{c.code}] {c.name}
+                                            [{c.customerCode}] {c.name}
                                         </option>
                                     ))}
                                 </select>
@@ -317,18 +332,19 @@ export default function CreateInvoicePage() {
                                     <tr>
                                         <th style={{ width: 300 }}>Item</th>
                                         <th style={{ width: 100, textAlign: 'right' }}>Qty</th>
+                                        <th style={{ width: 60 }}>Unit</th>
                                         <th style={{ width: 140, textAlign: 'right' }}>Unit Price</th>
                                         <th style={{ width: 100, textAlign: 'right' }}>Discount %</th>
-                                        <th style={{ width: 100 }}>Tax</th>
+                                        <th style={{ width: 120 }}>Tax</th>
                                         <th style={{ width: 140, textAlign: 'right' }}>Total</th>
                                         <th style={{ width: 50 }}></th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {lines.map((line, index) => {
+                                    {lines.map((line) => {
                                         const calc = calculateLineTotal(line);
                                         return (
-                                            <tr key={line.id}>
+                                            <tr key={line.id} style={{ verticalAlign: 'top' }}>
                                                 <td style={{ position: 'relative' }}>
                                                     <div style={{ position: 'relative' }}>
                                                         <Search
@@ -336,8 +352,7 @@ export default function CreateInvoicePage() {
                                                             style={{
                                                                 position: 'absolute',
                                                                 left: 10,
-                                                                top: '50%',
-                                                                transform: 'translateY(-50%)',
+                                                                top: 12, // align top
                                                                 color: 'var(--text-muted)',
                                                             }}
                                                         />
@@ -349,8 +364,12 @@ export default function CreateInvoicePage() {
                                                                 setItemSearch(e.target.value);
                                                                 setShowItemDropdown(line.id);
                                                             }}
-                                                            onFocus={() => setShowItemDropdown(line.id)}
+                                                            onFocus={() => {
+                                                                setItemSearch(''); // Clear search on focus to show all/recent
+                                                                setShowItemDropdown(line.id);
+                                                            }}
                                                             style={{ paddingLeft: 36 }}
+                                                            autoComplete="off"
                                                         />
                                                         {showItemDropdown === line.id && (
                                                             <div
@@ -364,7 +383,7 @@ export default function CreateInvoicePage() {
                                                                     borderRadius: 'var(--radius-md)',
                                                                     boxShadow: 'var(--shadow-lg)',
                                                                     zIndex: 100,
-                                                                    maxHeight: 200,
+                                                                    maxHeight: 250,
                                                                     overflowY: 'auto',
                                                                 }}
                                                             >
@@ -383,7 +402,10 @@ export default function CreateInvoicePage() {
                                                                         <div style={{ fontWeight: 500 }}>{item.name}</div>
                                                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
                                                                             <span>{item.sku}</span>
-                                                                            <span>{formatCurrency(item.price)}</span>
+                                                                            <span>Stock: {item.onHand} {item.uomCode}</span>
+                                                                        </div>
+                                                                        <div style={{ fontSize: '0.75rem', fontWeight: 500, marginTop: 2 }}>
+                                                                            {formatCurrency(item.sellingPrice)}
                                                                         </div>
                                                                     </div>
                                                                 ))}
@@ -395,6 +417,17 @@ export default function CreateInvoicePage() {
                                                             </div>
                                                         )}
                                                     </div>
+                                                    {line.itemId && (
+                                                        <div style={{ marginTop: 4 }}>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Description (optional)"
+                                                                value={line.description}
+                                                                onChange={(e) => updateLine(line.id, 'description', e.target.value)}
+                                                                style={{ fontSize: '0.85rem', padding: 'var(--space-1) var(--space-2)', height: 'auto' }}
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td>
                                                     <input
@@ -404,6 +437,14 @@ export default function CreateInvoicePage() {
                                                         onChange={(e) => updateLine(line.id, 'qty', Number(e.target.value))}
                                                         style={{ textAlign: 'right' }}
                                                     />
+                                                </td>
+                                                <td>
+                                                    <div style={{
+                                                        height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        color: 'var(--text-secondary)', fontSize: '0.875rem'
+                                                    }}>
+                                                        {line.uomCode}
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     <input
@@ -428,13 +469,14 @@ export default function CreateInvoicePage() {
                                                     <select
                                                         value={line.taxCode}
                                                         onChange={(e) => updateLine(line.id, 'taxCode', e.target.value)}
+                                                        style={{ width: '100%' }}
                                                     >
                                                         <option value="NON">No Tax</option>
                                                         <option value="PPN11">PPN 11%</option>
                                                         <option value="PPN12">PPN 12%</option>
                                                     </select>
                                                 </td>
-                                                <td className="money" style={{ textAlign: 'right', fontWeight: 600 }}>
+                                                <td className="money" style={{ textAlign: 'right', fontWeight: 600, paddingTop: 10 }}>
                                                     {formatCurrency(calc.total)}
                                                 </td>
                                                 <td>
@@ -467,7 +509,7 @@ export default function CreateInvoicePage() {
                                 onChange={(e) => setMemo(e.target.value)}
                                 placeholder="Add any notes for this invoice..."
                                 rows={4}
-                                style={{ resize: 'vertical' }}
+                                style={{ resize: 'vertical', width: '100%' }}
                             />
                         </div>
 
