@@ -86,6 +86,8 @@ export const DocumentStatus = {
     CANCELLED: 'CANCELLED',
 } as const;
 
+export type DocumentStatus = typeof DocumentStatus[keyof typeof DocumentStatus];
+
 // -----------------------------------------------------------------------------
 // Source Types (for ledgers and journals)
 // -----------------------------------------------------------------------------

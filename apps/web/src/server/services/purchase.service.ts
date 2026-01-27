@@ -131,7 +131,7 @@ export async function getPurchaseBills(params: {
         supplierName: r.supplier_name,
         billDate: r.bill_date.toISOString(),
         dueDate: r.due_date.toISOString(),
-        status: r.status as any,
+        status: r.status as DocumentStatus,
         supplierInvoiceNo: r.supplier_inv_no || undefined,
         subtotal: Number(r.subtotal),
         taxTotal: Number(r.tax_total),
@@ -158,7 +158,7 @@ export async function getPurchaseBill(id: number): Promise<PurchaseBill | null> 
     const r = rows[0];
 
     // Get Lines
-    const lineRows = await query<any[]>(
+    const lineRows = await query<RowDataPacket[]>(
         `SELECT pbl.*, i.sku, i.name as item_name
          FROM purchase_bill_lines pbl
          LEFT JOIN items i ON i.id = pbl.item_id
@@ -190,7 +190,7 @@ export async function getPurchaseBill(id: number): Promise<PurchaseBill | null> 
         supplierName: r.supplier_name,
         billDate: r.bill_date.toISOString(),
         dueDate: r.due_date.toISOString(),
-        status: r.status as any,
+        status: r.status as DocumentStatus,
         supplierInvoiceNo: r.supplier_inv_no || undefined,
         subtotal: Number(r.subtotal),
         taxTotal: Number(r.tax_total),
@@ -320,7 +320,7 @@ export async function postPurchaseBill(id: number, userId: number): Promise<void
             throw new PurchaseError(ErrorCodes.PRC_BILL_ALREADY_POSTED, `Bill status is ${bill.status}`);
         }
 
-        const lines = await queryTx<any[]>(
+        const lines = await queryTx<RowDataPacket[]>(
             connection,
             'SELECT * FROM purchase_bill_lines WHERE bill_id = ? ORDER BY line_no',
             [id]

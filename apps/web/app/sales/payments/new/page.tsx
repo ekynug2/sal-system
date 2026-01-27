@@ -45,24 +45,36 @@ export default function ReceivePaymentPage() {
     // Fetch unpaid invoices when customer selected
     const { data: unpaidInvoices, isLoading: invoicesLoading } = useUnpaidInvoices(customerId);
 
-    // Auto allocate when amount received changes
-    useEffect(() => {
-        if (!unpaidInvoices || !amountReceived) return;
+    // Helper for auto-allocation
+    function autoAllocate(amount: number, invoices: typeof unpaidInvoices) {
+        if (!invoices || amount <= 0) return {};
 
-        let remaining = amountReceived;
+        let remaining = amount;
         const newAllocations: Record<number, number> = {};
 
-        // Auto allocate logic: oldest due date first (already sorted by API)
-        for (const inv of unpaidInvoices) {
+        for (const inv of invoices) {
             if (remaining <= 0) break;
-
             const allocate = Math.min(remaining, inv.balanceDue);
             newAllocations[inv.id] = allocate;
             remaining -= allocate;
         }
+        return newAllocations;
+    }
 
-        setAllocations(newAllocations);
-    }, [amountReceived, unpaidInvoices]);
+    // Effect to reset/re-allocate when invoices list changes (e.g. customer change)
+    // We only allocate if we have an amount filled
+    useEffect(() => {
+        if (unpaidInvoices && amountReceived > 0) {
+            const newAlloc = autoAllocate(amountReceived, unpaidInvoices);
+            const timer = setTimeout(() => {
+                setAllocations(newAlloc);
+            }, 0);
+            return () => clearTimeout(timer);
+        } else if (!unpaidInvoices) {
+            setAllocations({});
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [unpaidInvoices]);
 
     // Initial load
     if (authLoading) {
@@ -215,7 +227,11 @@ export default function ReceivePaymentPage() {
                                         type="number"
                                         min="0"
                                         value={amountReceived || ''}
-                                        onChange={(e) => setAmountReceived(Number(e.target.value))}
+                                        onChange={(e) => {
+                                            const val = Number(e.target.value);
+                                            setAmountReceived(val);
+                                            setAllocations(autoAllocate(val, unpaidInvoices));
+                                        }}
                                         required
                                         style={{ paddingLeft: 35, textAlign: 'right' }}
                                     />

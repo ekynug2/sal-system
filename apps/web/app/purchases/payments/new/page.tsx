@@ -99,7 +99,7 @@ export default function CreatePurchasePaymentPage() {
         }
 
         const allocationList = Object.entries(allocations)
-            .filter(([_, amount]) => amount > 0)
+            .filter(([, amount]) => amount > 0)
             .map(([billId, amount]) => ({
                 billId: Number(billId),
                 amount

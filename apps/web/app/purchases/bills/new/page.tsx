@@ -11,6 +11,7 @@ import { Sidebar } from '@/ui/components/sidebar';
 import { useCreatePurchaseBill } from '@/hooks/use-purchases';
 import { useItems, useSuppliers } from '@/hooks/use-master-data';
 import { formatCurrency } from '@/lib/api-client';
+import type { Item } from '@/shared/types';
 import {
     ArrowLeft,
     Plus,
@@ -18,7 +19,6 @@ import {
     Save,
     Loader2,
     Search,
-    Calendar,
 } from 'lucide-react';
 
 interface BillLine {
@@ -76,11 +76,11 @@ export default function CreateBillPage() {
         if (lines.length > 1) setLines(lines.filter(l => l.id !== id));
     }
 
-    function updateLine(id: string, field: keyof BillLine, value: any) {
+    function updateLine(id: string, field: keyof BillLine, value: string | number) {
         setLines(lines.map(l => l.id === id ? { ...l, [field]: value } : l));
     }
 
-    function selectItem(lineId: string, item: any) {
+    function selectItem(lineId: string, item: Item) {
         setLines(lines.map(l => {
             if (l.id === lineId) {
                 return {
@@ -356,39 +356,4 @@ export default function CreateBillPage() {
 }
 
 // Add CSS classes inline for this file or update global CSS
-const css = `
-.input {
-    width: 100%;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    background: var(--bg-primary);
-}
-.label {
-    display: block;
-    margin-bottom: var(--space-2);
-    font-size: 0.875rem;
-    font-weight: 500;
-}
-.dropdown-menu {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
-    z-index: 50;
-    max-height: 250px;
-    overflow-y: auto;
-}
-.dropdown-item {
-    padding: var(--space-2) var(--space-3);
-    cursor: pointer;
-    border-bottom: 1px solid var(--border-color);
-}
-.dropdown-item:hover {
-    background: var(--bg-secondary);
-}
-`;
+
