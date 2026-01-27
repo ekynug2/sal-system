@@ -5,7 +5,6 @@
 import { query } from '../db';
 import { RowDataPacket } from 'mysql2';
 import type { ProfitLossReport } from '../../shared/types';
-import { AccountType } from '../../shared/constants';
 
 interface GLRow extends RowDataPacket {
     account_id: number;

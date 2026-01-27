@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/lib/api-client';
-import { ProfitLossReport } from '@shared/types';
+import { ProfitLossReport } from '@/shared/types';
 
 export const reportKeys = {
     all: ['reports'] as const,

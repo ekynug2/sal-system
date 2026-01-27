@@ -64,7 +64,6 @@ cd docker && docker-compose up -d
 
 **Services:**
 - MySQL: `localhost:3306`
-- phpMyAdmin: `http://localhost:8080`
 
 ### 2. Install Dependencies
 

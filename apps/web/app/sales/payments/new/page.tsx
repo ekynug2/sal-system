@@ -13,11 +13,8 @@ import { useCustomers } from '@/hooks/use-master-data';
 import { formatCurrency, formatDate } from '@/lib/api-client';
 import {
     ArrowLeft,
-    DollarSign,
     Save,
     Loader2,
-    Calendar,
-    Wallet,
 } from 'lucide-react';
 
 const PAYMENT_METHODS = [
@@ -48,20 +45,6 @@ export default function ReceivePaymentPage() {
     // Fetch unpaid invoices when customer selected
     const { data: unpaidInvoices, isLoading: invoicesLoading } = useUnpaidInvoices(customerId);
 
-    // Initial load
-    if (authLoading) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-                <Loader2 className="animate-spin" size={32} />
-            </div>
-        );
-    }
-
-    if (!user) {
-        router.push('/login');
-        return null;
-    }
-
     // Auto allocate when amount received changes
     useEffect(() => {
         if (!unpaidInvoices || !amountReceived) return;
@@ -79,7 +62,23 @@ export default function ReceivePaymentPage() {
         }
 
         setAllocations(newAllocations);
-    }, [amountReceived, unpaidInvoices]); // Re-run when amount or invoices change
+    }, [amountReceived, unpaidInvoices]);
+
+    // Initial load
+    if (authLoading) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+                <Loader2 className="animate-spin" size={32} />
+            </div>
+        );
+    }
+
+    if (!user) {
+        router.push('/login');
+        return null;
+    }
+
+
 
     const totalAllocated = Object.values(allocations).reduce((sum, val) => sum + val, 0);
     const remainingToAllocate = amountReceived - totalAllocated;
@@ -105,7 +104,7 @@ export default function ReceivePaymentPage() {
         }
 
         const allocationList = Object.entries(allocations)
-            .filter(([_, amount]) => amount > 0)
+            .filter(([, amount]) => amount > 0)
             .map(([invId, amount]) => ({
                 invoiceId: Number(invId),
                 amount,

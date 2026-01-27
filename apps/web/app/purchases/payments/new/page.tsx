@@ -4,7 +4,7 @@
 // SAL Accounting System - Create Purchase Payment
 // =============================================================================
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/ui/providers/auth-provider';
 import { Sidebar } from '@/ui/components/sidebar';
@@ -14,8 +14,6 @@ import { formatCurrency, formatDate } from '@/lib/api-client';
 import {
     ArrowLeft,
     CheckCircle,
-    Save,
-    Search,
     Loader2,
 } from 'lucide-react';
 

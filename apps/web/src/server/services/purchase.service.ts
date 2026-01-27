@@ -4,11 +4,10 @@
 
 import { RowDataPacket } from 'mysql2';
 import { query, transaction, queryTx, executeTx } from '../db';
-import type { PoolConnection } from 'mysql2/promise';
 import { ErrorCodes, DocumentStatus, SourceType, DefaultAccountKeys } from '../../shared/constants';
 import { getNextNumber, SequenceKeys } from './sequence.service';
 import { createAuditLogTx } from './audit.service';
-import { updateStock, getItemStock } from './inventory.service';
+import { updateStock } from './inventory.service';
 import { createJournalEntry, getDefaultAccountId, getTaxAccounts } from './journal.service';
 import type { PurchaseBill, PurchaseBillLine } from '../../shared/types';
 
@@ -490,7 +489,7 @@ export async function createPurchasePayment(
         }
 
         // 3. Get Accounts
-        let bankAccountId = input.bankAccountId;
+        const bankAccountId = input.bankAccountId;
         let bankCoaId: number;
 
         if (bankAccountId) {

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Sidebar } from '@/ui/components/sidebar';
 import { usePnLReport } from '@/hooks/use-reports';
 import { formatCurrency, formatDate } from '@/lib/api-client';
-import { Loader2, RefreshCw, Calendar, Download } from 'lucide-react';
+import { Loader2, RefreshCw, Download } from 'lucide-react';
 
 export default function ProfitLossPage() {
     const now = new Date();

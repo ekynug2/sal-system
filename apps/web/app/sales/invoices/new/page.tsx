@@ -62,7 +62,7 @@ export default function CreateInvoicePage() {
 
     const [customerId, setCustomerId] = useState<number | null>(null);
     const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
-    const [dueDate, setDueDate] = useState(
+    const [dueDate, setDueDate] = useState(() =>
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     );
     const [memo, setMemo] = useState('');
@@ -109,7 +109,7 @@ export default function CreateInvoicePage() {
         }
     }
 
-    function updateLine(id: string, field: keyof InvoiceLine, value: any) {
+    function updateLine(id: string, field: keyof InvoiceLine, value: string | number) {
         setLines(lines.map(l => {
             if (l.id === id) {
                 const updated = { ...l, [field]: value };
