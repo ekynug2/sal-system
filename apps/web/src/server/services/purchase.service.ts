@@ -72,8 +72,12 @@ export async function getPurchaseBills(params: {
     const values: (string | number)[] = [];
 
     if (params.status) {
-        conditions.push('pb.status = ?');
-        values.push(params.status);
+        if (params.status === 'UNPAID') {
+            conditions.push("pb.status IN ('POSTED', 'PARTIALLY_PAID')");
+        } else {
+            conditions.push('pb.status = ?');
+            values.push(params.status);
+        }
     }
 
     if (params.supplierId) {
@@ -420,5 +424,182 @@ export async function postPurchaseBill(id: number, userId: number): Promise<void
             actorUserId: userId,
             metadata: { billNo: bill.bill_no, grandTotal: bill.grand_total },
         });
+    });
+}
+
+// -----------------------------------------------------------------------------
+// Payment Operations
+// -----------------------------------------------------------------------------
+
+export interface PayBillInput {
+    supplierId: number;
+    paymentDate: string;
+    method: string;
+    amountTotal: number;
+    allocations: { billId: number; amount: number }[];
+    bankAccountId?: number;
+    referenceNo?: string;
+    memo?: string;
+}
+
+export async function createPurchasePayment(
+    input: PayBillInput,
+    userId: number
+): Promise<number> {
+    return transaction(async (connection) => {
+        // 1. Generate Payment Number
+        const paymentNo = await getNextNumber(connection, SequenceKeys.PURCHASE_PAYMENT);
+
+        // 2. Validate Allocations
+        let totalAllocated = 0;
+        for (const alloc of input.allocations) {
+            const billRows = await queryTx<RowDataPacket[]>(
+                connection,
+                'SELECT * FROM purchase_bills WHERE id = ? AND supplier_id = ? FOR UPDATE',
+                [alloc.billId, input.supplierId]
+            );
+
+            if (billRows.length === 0) {
+                throw new PurchaseError(ErrorCodes.RESOURCE_NOT_FOUND, `Bill ${alloc.billId} not found`, 404);
+            }
+
+            const bill = billRows[0];
+            if (!['POSTED', 'PARTIALLY_PAID'].includes(bill.status)) {
+                throw new PurchaseError(ErrorCodes.CONFLICT, `Bill ${bill.bill_no} is not in posted status`, 409);
+            }
+
+            const balanceDue = Number(bill.grand_total) - Number(bill.paid_amount);
+            // Allow small tolerance for floating point
+            if (alloc.amount > balanceDue + 0.01) {
+                throw new PurchaseError(
+                    ErrorCodes.CONFLICT,
+                    `Payment amount ${alloc.amount} exceeds bill balance ${balanceDue}`,
+                    409
+                );
+            }
+
+            totalAllocated += alloc.amount;
+        }
+
+        if (Math.abs(totalAllocated - input.amountTotal) > 0.01) {
+            throw new PurchaseError(
+                ErrorCodes.VALIDATION_ERROR,
+                `Total allocations ${totalAllocated} does not match payment amount ${input.amountTotal}`,
+                422
+            );
+        }
+
+        // 3. Get Accounts
+        let bankAccountId = input.bankAccountId;
+        let bankCoaId: number;
+
+        if (bankAccountId) {
+            const bankRows = await queryTx<RowDataPacket[]>(
+                connection,
+                'SELECT coa_id FROM bank_accounts WHERE id = ?',
+                [bankAccountId]
+            );
+            if (bankRows.length === 0) {
+                throw new PurchaseError(ErrorCodes.RESOURCE_NOT_FOUND, 'Bank account not found', 404);
+            }
+            bankCoaId = bankRows[0].coa_id;
+        } else {
+            // Default to Cash
+            bankCoaId = await getDefaultAccountId(connection, DefaultAccountKeys.CASH_ON_HAND);
+        }
+
+        const apAccountId = await getDefaultAccountId(connection, DefaultAccountKeys.AP_TRADE);
+
+        // 4. Insert Payment Helper
+        const result = await executeTx(
+            connection,
+            `INSERT INTO purchase_payments 
+             (payment_no, supplier_id, payment_date, method, bank_account_id, amount_total, 
+              reference_no, memo, posted_by, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+            [
+                paymentNo,
+                input.supplierId,
+                input.paymentDate,
+                input.method,
+                input.bankAccountId || null,
+                input.amountTotal,
+                input.referenceNo || null,
+                input.memo || null,
+                userId,
+            ]
+        );
+        const paymentId = result.insertId;
+
+        // 5. Create Allocations & Update Bills
+        for (const alloc of input.allocations) {
+            // Insert allocation
+            await executeTx(
+                connection,
+                'INSERT INTO purchase_payment_allocations (payment_id, bill_id, amount) VALUES (?, ?, ?)',
+                [paymentId, alloc.billId, alloc.amount]
+            );
+
+            // Update Bill
+            await executeTx(
+                connection,
+                `UPDATE purchase_bills 
+                 SET paid_amount = paid_amount + ?,
+                     status = CASE 
+                        WHEN paid_amount + ? >= grand_total - 0.01 THEN 'PAID'
+                        ELSE 'PARTIALLY_PAID'
+                     END,
+                     updated_at = NOW()
+                 WHERE id = ?`,
+                [alloc.amount, alloc.amount, alloc.billId]
+            );
+        }
+
+        // 6. Journal Entry
+        //    Debit: AP Trade (decreases liability)
+        //    Credit: Bank/Cash (decreases asset)
+
+        // Get supplier name for memo
+        const suppRows = await queryTx<RowDataPacket[]>(
+            connection,
+            'SELECT name FROM suppliers WHERE id = ?',
+            [input.supplierId]
+        );
+        const supplierName = suppRows[0]?.name || 'Unknown';
+
+        await createJournalEntry(connection, {
+            entryDate: input.paymentDate,
+            sourceType: SourceType.PURCHASE_PAYMENT,
+            sourceId: paymentId,
+            memo: `Payment ${paymentNo} to ${supplierName}`,
+            postedBy: userId,
+            lines: [
+                {
+                    accountId: apAccountId,
+                    dc: 'D',
+                    amount: input.amountTotal,
+                    entityType: 'SUPPLIER',
+                    entityId: input.supplierId,
+                    memo: `Payment to ${supplierName}`,
+                },
+                {
+                    accountId: bankCoaId,
+                    dc: 'C',
+                    amount: input.amountTotal,
+                    memo: `Paid bill(s) - ${paymentNo}`,
+                }
+            ]
+        });
+
+        // 7. Audit Log
+        await createAuditLogTx(connection, {
+            action: 'CREATE',
+            entityType: 'PURCHASE_PAYMENT',
+            entityId: paymentId,
+            actorUserId: userId,
+            metadata: { paymentNo, amount: input.amountTotal, supplierId: input.supplierId }
+        });
+
+        return paymentId;
     });
 }

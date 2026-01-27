@@ -51,13 +51,21 @@ export default function PurchaseBillsPage() {
                             Manage supplier bills and accounts payable
                         </p>
                     </div>
-                    <button
-                        className="btn btn-primary"
-                        onClick={() => router.push('/purchases/bills/new')}
-                    >
-                        <Plus size={18} />
-                        New Bill
-                    </button>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        <button
+                            className="btn btn-secondary"
+                            onClick={() => router.push('/purchases/payments/new')}
+                        >
+                            Record Payment
+                        </button>
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => router.push('/purchases/bills/new')}
+                        >
+                            <Plus size={18} />
+                            New Bill
+                        </button>
+                    </div>
                 </div>
 
                 {/* List */}
@@ -123,8 +131,8 @@ export default function PurchaseBillsPage() {
                                                 </td>
                                                 <td style={{ textAlign: 'center' }}>
                                                     <span className={`badge ${bill.status === 'POSTED' ? 'badge-green' :
-                                                            bill.status === 'DRAFT' ? 'badge-gray' :
-                                                                bill.status === 'PAID' ? 'badge-blue' : 'badge-red'
+                                                        bill.status === 'DRAFT' ? 'badge-gray' :
+                                                            bill.status === 'PAID' ? 'badge-blue' : 'badge-red'
                                                         }`}>
                                                         {bill.status}
                                                     </span>

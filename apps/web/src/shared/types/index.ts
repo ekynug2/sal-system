@@ -334,6 +334,27 @@ export interface PurchaseBillLine {
     memo?: string;
 }
 
+export interface PurchasePayment {
+    id: number;
+    paymentNo: string;
+    supplierId: number;
+    supplierName: string;
+    paymentDate: string;
+    method: PaymentMethod;
+    bankAccountId?: number;
+    bankAccountName?: string;
+    amountTotal: number;
+    referenceNo?: string;
+    memo?: string;
+    allocations: PurchasePaymentAllocation[];
+}
+
+export interface PurchasePaymentAllocation {
+    billId: number;
+    billNo: string;
+    amount: number;
+}
+
 // -----------------------------------------------------------------------------
 // Inventory Types
 // -----------------------------------------------------------------------------

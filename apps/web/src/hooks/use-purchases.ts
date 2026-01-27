@@ -76,3 +76,35 @@ export function usePostPurchaseBill() {
         },
     });
 }
+
+export function useUnpaidBills(supplierId?: number) {
+    return useQuery({
+        queryKey: [...purchaseKeys.bills(), 'unpaid', supplierId],
+        queryFn: () => apiGet<PurchaseBill[]>(`/purchases/bills/unpaid`, { supplierId }),
+        enabled: !!supplierId,
+    });
+}
+
+export interface CreatePaymentInput {
+    supplierId: number;
+    paymentDate: string;
+    method: string;
+    amountTotal: number;
+    allocations: { billId: number; amount: number }[];
+    bankAccountId?: number;
+    referenceNo?: string;
+    memo?: string;
+}
+
+export function useCreatePurchasePayment() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (input: CreatePaymentInput) => apiPost<{ id: number }>('/purchases/payments', input),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: purchaseKeys.bills() });
+            // Invalidate supplier balance if we had that query
+        },
+    });
+}
+
