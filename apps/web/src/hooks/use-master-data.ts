@@ -6,12 +6,13 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/lib/api-client';
-import type { Customer, Item } from '@/shared/types';
+import type { Customer, Item, Supplier } from '@/shared/types';
 
 // Query Keys
 export const masterDataKeys = {
     all: ['master-data'] as const,
     customers: (params?: Record<string, unknown>) => [...masterDataKeys.all, 'customers', params] as const,
+    suppliers: (params?: Record<string, unknown>) => [...masterDataKeys.all, 'suppliers', params] as const,
     items: (params?: Record<string, unknown>) => [...masterDataKeys.all, 'items', params] as const,
 };
 
@@ -28,6 +29,20 @@ export function useCustomers(params: {
     return useQuery({
         queryKey: masterDataKeys.customers(params),
         queryFn: () => apiGet<Customer[]>('/customers', queryParams),
+    });
+}
+
+export function useSuppliers(params: {
+    search?: string;
+    activeOnly?: boolean;
+} = { activeOnly: true }) {
+    const queryParams = {
+        ...params,
+        activeOnly: params.activeOnly?.toString(),
+    };
+    return useQuery({
+        queryKey: masterDataKeys.suppliers(params),
+        queryFn: () => apiGet<Supplier[]>('/suppliers', queryParams),
     });
 }
 
