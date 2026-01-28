@@ -4,7 +4,7 @@
 
 import { RowDataPacket } from 'mysql2';
 import { execute, query } from '../db';
-import { executeTx, queryTx } from '../db';
+import { executeTx } from '../db';
 import type { PoolConnection } from 'mysql2/promise';
 
 export interface AuditLogEntry {

@@ -50,7 +50,7 @@ export default function CreateAdjustmentPage() {
 
     // Master Data
     const { data: itemsData, isLoading: itemsLoading } = useItems({ sellableOnly: false }); // All items
-    const items = itemsData || [];
+    const items = itemsData?.data || [];
 
     // State
     const [adjDate, setAdjDate] = useState(new Date().toISOString().split('T')[0]);
@@ -83,7 +83,7 @@ export default function CreateAdjustmentPage() {
         }
     }
 
-    function updateLine(id: string, field: keyof AdjLine, value: any) {
+    function updateLine(id: string, field: keyof AdjLine, value: string | number | null) {
         setLines(lines.map(l => {
             if (l.id === id) {
                 return { ...l, [field]: value };
@@ -92,7 +92,7 @@ export default function CreateAdjustmentPage() {
         }));
     }
 
-    function selectItem(lineId: string, item: any) {
+    function selectItem(lineId: string, item: { id: number; sku: string; name: string; onHand?: number }) {
         setLines(lines.map(l => {
             if (l.id === lineId) {
                 return {

@@ -340,24 +340,36 @@ export async function checkStockAvailability(
 ): Promise<{ valid: boolean; insufficientItems: { itemId: number; sku: string; available: number; requested: number }[] }> {
     const insufficientItems: { itemId: number; sku: string; available: number; requested: number }[] = [];
 
-    for (const item of items) {
-        const rows = await queryTx<ItemStockRow[]>(
+    if (items.length > 0) {
+        const itemIds = items.map(i => i.itemId);
+        // Fetch all needed stock in one query
+        const stockRows = await queryTx<ItemStockRow[]>(
             connection,
-            `SELECT ist.on_hand, i.sku
-       FROM item_stock ist
-       INNER JOIN items i ON i.id = ist.item_id
-       WHERE ist.item_id = ?`,
-            [item.itemId]
+            `SELECT ist.item_id, ist.on_hand, i.sku
+             FROM item_stock ist
+             INNER JOIN items i ON i.id = ist.item_id
+             WHERE ist.item_id IN (${itemIds.map(() => '?').join(',')})`,
+            itemIds
         );
 
-        const onHand = rows.length > 0 ? Number(rows[0].on_hand) : 0;
-        if (onHand < item.qty) {
-            insufficientItems.push({
-                itemId: item.itemId,
-                sku: rows[0]?.sku || 'UNKNOWN',
-                available: onHand,
-                requested: item.qty,
-            });
+        const stockMap = new Map<number, { onHand: number; sku: string }>();
+        for (const row of stockRows) {
+            stockMap.set(row.item_id, { onHand: Number(row.on_hand), sku: row.sku });
+        }
+
+        for (const item of items) {
+            const stockInfo = stockMap.get(item.itemId);
+            const onHand = stockInfo ? stockInfo.onHand : 0;
+            const sku = stockInfo ? stockInfo.sku : 'UNKNOWN';
+
+            if (onHand < item.qty) {
+                insufficientItems.push({
+                    itemId: item.itemId,
+                    sku,
+                    available: onHand,
+                    requested: item.qty,
+                });
+            }
         }
     }
 
@@ -392,6 +404,19 @@ interface InventoryAdjustmentRow extends RowDataPacket {
     memo: string | null;
 }
 
+interface AdjustmentLineRow extends RowDataPacket {
+    id: number;
+    adjustment_id: number;
+    line_no: number;
+    item_id: number;
+    qty_delta: number;
+    unit_cost: number;
+    reason_code: string;
+    memo: string | null;
+    sku?: string;
+    item_name?: string;
+}
+
 export async function createInventoryAdjustment(
     input: CreateInventoryAdjustmentInput,
     userId: number
@@ -412,21 +437,28 @@ export async function createInventoryAdjustment(
 
         // 3. Insert lines
         let lineNo = 1;
-        for (const line of input.lines) {
-            await executeTx(
-                connection,
-                `INSERT INTO inventory_adjustment_lines
-                 (adjustment_id, line_no, item_id, qty_delta, unit_cost, reason_code, memo)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [
+        // 3. Insert lines (Bulk)
+        if (input.lines.length > 0) {
+            const lineValues: any[] = [];
+            const placeholders = input.lines.map(line => {
+                lineValues.push(
                     adjId,
                     lineNo++,
                     line.itemId,
                     line.qtyDelta,
-                    line.unitCost || 0, // 0 means use current cost at posting time
+                    line.unitCost || 0,
                     line.reasonCode,
-                    line.memo || null,
-                ]
+                    line.memo || null
+                );
+                return '(?, ?, ?, ?, ?, ?, ?)';
+            }).join(', ');
+
+            await executeTx(
+                connection,
+                `INSERT INTO inventory_adjustment_lines
+                 (adjustment_id, line_no, item_id, qty_delta, unit_cost, reason_code, memo)
+                 VALUES ${placeholders}`,
+                lineValues
             );
         }
 
@@ -467,8 +499,8 @@ export async function getInventoryAdjustments(params: {
         id: r.id,
         adjustmentNo: r.adjustment_no,
         adjDate: r.adj_date.toISOString(),
-        status: r.status as any,
-        adjustmentType: r.adjustment_type as any,
+        status: r.status as InventoryAdjustment['status'],
+        adjustmentType: r.adjustment_type as InventoryAdjustment['adjustmentType'],
         memo: r.memo || undefined,
         lines: [], // Lines fetched separately if needed, or join query
     }));
@@ -486,7 +518,7 @@ export async function getInventoryAdjustment(id: number): Promise<InventoryAdjus
     const r = rows[0];
 
     // Get lines
-    const lineRows = await query<any[]>(
+    const lineRows = await query<AdjustmentLineRow[]>(
         `SELECT ial.*, i.sku, i.name as item_name
          FROM inventory_adjustment_lines ial
          JOIN items i ON i.id = ial.item_id
@@ -505,7 +537,7 @@ export async function getInventoryAdjustment(id: number): Promise<InventoryAdjus
         qtyDelta: Number(l.qty_delta),
         unitCost: Number(l.unit_cost),
         valueDelta: 0,
-        reasonCode: l.reason_code,
+        reasonCode: l.reason_code as InventoryAdjustment['lines'][number]['reasonCode'],
         memo: l.memo || undefined,
     }));
 
@@ -513,8 +545,8 @@ export async function getInventoryAdjustment(id: number): Promise<InventoryAdjus
         id: r.id,
         adjustmentNo: r.adjustment_no,
         adjDate: r.adj_date.toISOString(),
-        status: r.status as any,
-        adjustmentType: r.adjustment_type as any,
+        status: r.status as InventoryAdjustment['status'],
+        adjustmentType: r.adjustment_type as InventoryAdjustment['adjustmentType'],
         memo: r.memo || undefined,
         lines,
     };
@@ -536,7 +568,7 @@ export async function postInventoryAdjustment(id: number, userId: number): Promi
         }
 
         // 2. Get lines
-        const lines = await queryTx<any[]>(
+        const lines = await queryTx<AdjustmentLineRow[]>(
             connection,
             'SELECT * FROM inventory_adjustment_lines WHERE adjustment_id = ? ORDER BY line_no',
             [id]
@@ -549,7 +581,7 @@ export async function postInventoryAdjustment(id: number, userId: number): Promi
 
             // If unitCost is 0 or negative qty, fetch current cost
             if (unitCost === 0 || qtyDelta < 0) {
-                const itemStock = await getItemStock(line.item_id); // This is outside transaction context if we use exported function directy, be careful. Better re-implement basic query inside loop or pass connection
+                // This is outside transaction context if we use exported function directy, be careful. Better re-implement basic query inside loop or pass connection
                 // Re-query safely within tx
                 const [itemRow] = await queryTx<RowDataPacket[]>(
                     connection,
@@ -560,7 +592,7 @@ export async function postInventoryAdjustment(id: number, userId: number): Promi
             }
 
             // Update Stock
-            const { avgCostAfter } = await updateStock(connection, {
+            await updateStock(connection, {
                 itemId: line.item_id,
                 qtyDelta: qtyDelta,
                 unitCost: unitCost,
@@ -597,3 +629,388 @@ export async function postInventoryAdjustment(id: number, userId: number): Promi
         });
     });
 }
+
+// -----------------------------------------------------------------------------
+// Stock Opname (Stock Count Sessions)
+// -----------------------------------------------------------------------------
+
+interface StockOpnameSessionRow extends RowDataPacket {
+    id: number;
+    session_no: string;
+    opname_date: string;
+    status: string;
+    location: string | null;
+    memo: string | null;
+}
+
+interface StockOpnameItemRow extends RowDataPacket {
+    id: number;
+    session_id: number;
+    item_id: number;
+    sku: string;
+    item_name: string;
+    system_qty: number;
+    counted_qty: number | null;
+    variance: number;
+    notes: string | null;
+}
+
+export interface CreateStockOpnameInput {
+    opnameDate: string;
+    location?: string;
+    memo?: string;
+    itemIds: number[]; // Items to include in the count
+}
+
+export async function getStockOpnameSessions(params: {
+    status?: string;
+    page?: number;
+    limit?: number;
+}): Promise<{ sessions: import('../../shared/types').StockOpnameSession[]; total: number }> {
+    const conditions: string[] = [];
+    const values: (string | number)[] = [];
+
+    if (params.status) {
+        conditions.push('so.status = ?');
+        values.push(params.status);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const offset = (page - 1) * limit;
+
+    // Get total
+    const [countResult] = await query<RowDataPacket[]>(
+        `SELECT COUNT(*) as total FROM stock_opname_sessions so ${whereClause}`,
+        values
+    );
+    const total = countResult?.total || 0;
+
+    // Get sessions
+    const rows = await query<StockOpnameSessionRow[]>(
+        `SELECT so.* FROM stock_opname_sessions so
+         ${whereClause}
+         ORDER BY so.opname_date DESC, so.id DESC
+         LIMIT ? OFFSET ?`,
+        [...values, limit, offset]
+    );
+
+    const sessions = rows.map(r => ({
+        id: r.id,
+        sessionNo: r.session_no,
+        opnameDate: r.opname_date,
+        status: r.status as import('../../shared/types').StockOpnameSession['status'],
+        location: r.location || undefined,
+        memo: r.memo || undefined,
+        items: [],
+    }));
+
+    return { sessions, total };
+}
+
+export async function getStockOpnameSession(id: number): Promise<import('../../shared/types').StockOpnameSession | null> {
+    const rows = await query<StockOpnameSessionRow[]>(
+        'SELECT * FROM stock_opname_sessions WHERE id = ?',
+        [id]
+    );
+
+    if (rows.length === 0) return null;
+    const r = rows[0];
+
+    // Get items
+    const itemRows = await query<StockOpnameItemRow[]>(
+        `SELECT soi.*, i.sku, i.name as item_name
+         FROM stock_opname_items soi
+         INNER JOIN items i ON i.id = soi.item_id
+         WHERE soi.session_id = ?
+         ORDER BY i.sku`,
+        [id]
+    );
+
+    const items = itemRows.map(i => ({
+        itemId: i.item_id,
+        itemSku: i.sku,
+        itemName: i.item_name,
+        systemQty: Number(i.system_qty),
+        countedQty: i.counted_qty != null ? Number(i.counted_qty) : undefined,
+        variance: Number(i.variance),
+        notes: i.notes || undefined,
+    }));
+
+    return {
+        id: r.id,
+        sessionNo: r.session_no,
+        opnameDate: r.opname_date,
+        status: r.status as import('../../shared/types').StockOpnameSession['status'],
+        location: r.location || undefined,
+        memo: r.memo || undefined,
+        items,
+    };
+}
+
+export async function createStockOpnameSession(
+    input: CreateStockOpnameInput,
+    userId: number
+): Promise<number> {
+    return transaction(async (connection) => {
+        // Generate session number
+        const sessionNo = await getNextNumber(connection, SequenceKeys.OPNAME);
+
+        // Insert session header
+        const result = await executeTx(
+            connection,
+            `INSERT INTO stock_opname_sessions 
+             (session_no, opname_date, status, location, memo, created_by)
+             VALUES (?, ?, 'OPEN', ?, ?, ?)`,
+            [sessionNo, input.opnameDate, input.location || null, input.memo || null, userId]
+        );
+
+        const sessionId = result.insertId;
+
+        // Get current stock for all items
+        if (input.itemIds.length > 0) {
+            const stockRows = await queryTx<ItemStockRow[]>(
+                connection,
+                `SELECT ist.item_id, ist.on_hand
+                 FROM item_stock ist
+                 WHERE ist.item_id IN (${input.itemIds.map(() => '?').join(',')})`,
+                input.itemIds
+            );
+
+            const stockMap = new Map<number, number>();
+            for (const row of stockRows) stockMap.set(row.item_id, Number(row.on_hand));
+
+            // Bulk Insert Opname Items
+            const itemValues: any[] = [];
+            const placeholders = input.itemIds.map(itemId => {
+                const systemQty = stockMap.get(itemId) || 0;
+                itemValues.push(sessionId, itemId, systemQty);
+                return '(?, ?, ?, NULL, 0, NULL)';
+            }).join(', ');
+
+            await executeTx(
+                connection,
+                `INSERT INTO stock_opname_items 
+                 (session_id, item_id, system_qty, counted_qty, variance, notes)
+                 VALUES ${placeholders}`,
+                itemValues
+            );
+        }
+
+        // Audit log
+        await createAuditLogTx(connection, {
+            action: 'CREATE',
+            entityType: 'STOCK_OPNAME',
+            entityId: sessionId,
+            actorUserId: userId,
+            metadata: { sessionNo, itemCount: input.itemIds.length },
+        });
+
+        return sessionId;
+    });
+}
+
+export async function updateOpnameItem(
+    sessionId: number,
+    itemId: number,
+    countedQty: number,
+    notes?: string
+): Promise<void> {
+    // Get system qty to calculate variance
+    const rows = await query<StockOpnameItemRow[]>(
+        `SELECT * FROM stock_opname_items WHERE session_id = ? AND item_id = ?`,
+        [sessionId, itemId]
+    );
+
+    if (rows.length === 0) {
+        throw new InventoryError(
+            ErrorCodes.RESOURCE_NOT_FOUND,
+            'Item not found in opname session',
+            404
+        );
+    }
+
+    const systemQty = Number(rows[0].system_qty);
+    const variance = countedQty - systemQty;
+
+    await query(
+        `UPDATE stock_opname_items 
+         SET counted_qty = ?, variance = ?, notes = ?, updated_at = NOW()
+         WHERE session_id = ? AND item_id = ?`,
+        [countedQty, variance, notes || null, sessionId, itemId]
+    );
+}
+
+export async function submitStockOpname(sessionId: number, userId: number): Promise<void> {
+    // Check all items have been counted
+    const uncounted = await query<RowDataPacket[]>(
+        'SELECT COUNT(*) as cnt FROM stock_opname_items WHERE session_id = ? AND counted_qty IS NULL',
+        [sessionId]
+    );
+
+    if (Number(uncounted[0]?.cnt) > 0) {
+        throw new InventoryError(
+            ErrorCodes.INV_OPNAME_INVALID_STATUS,
+            'All items must be counted before submitting',
+            400
+        );
+    }
+
+    await query(
+        `UPDATE stock_opname_sessions SET status = 'SUBMITTED', updated_at = NOW() WHERE id = ?`,
+        [sessionId]
+    );
+
+    await createAuditLogTx(null as unknown as PoolConnection, {
+        action: 'UPDATE',
+        entityType: 'STOCK_OPNAME',
+        entityId: sessionId,
+        actorUserId: userId,
+        metadata: { status: 'SUBMITTED' },
+    });
+}
+
+export async function postStockOpname(
+    sessionId: number,
+    userId: number,
+    idempotencyKey: string
+): Promise<number> {
+    return transaction(async (connection) => {
+        // Check idempotency
+        const existingKey = await queryTx<RowDataPacket[]>(
+            connection,
+            'SELECT id FROM idempotency_keys WHERE key_value = ?',
+            [idempotencyKey]
+        );
+
+        if (existingKey.length > 0) {
+            return 0;
+        }
+
+        // Lock and get session
+        const sessionRows = await queryTx<StockOpnameSessionRow[]>(
+            connection,
+            'SELECT * FROM stock_opname_sessions WHERE id = ? FOR UPDATE',
+            [sessionId]
+        );
+
+        if (sessionRows.length === 0) {
+            throw new InventoryError(ErrorCodes.RESOURCE_NOT_FOUND, 'Session not found', 404);
+        }
+
+        const session = sessionRows[0];
+
+        if (session.status !== 'SUBMITTED') {
+            throw new InventoryError(
+                ErrorCodes.INV_OPNAME_INVALID_STATUS,
+                'Session must be submitted before posting',
+                400
+            );
+        }
+
+        // Get items with variance
+        const items = await queryTx<StockOpnameItemRow[]>(
+            connection,
+            `SELECT soi.*, i.sku, i.name as item_name
+             FROM stock_opname_items soi
+             INNER JOIN items i ON i.id = soi.item_id
+             WHERE soi.session_id = ? AND soi.variance != 0`,
+            [sessionId]
+        );
+
+        if (items.length === 0) {
+            // No adjustments needed, just mark as posted
+            await executeTx(
+                connection,
+                `UPDATE stock_opname_sessions SET status = 'POSTED', posted_at = NOW(), posted_by = ? WHERE id = ?`,
+                [userId, sessionId]
+            );
+            return 0;
+        }
+
+        // Create adjustment for variances
+        const adjNo = await getNextNumber(connection, SequenceKeys.ADJUSTMENT);
+
+        const adjResult = await executeTx(
+            connection,
+            `INSERT INTO inventory_adjustments 
+             (adjustment_no, adj_date, status, adjustment_type, memo, created_by)
+             VALUES (?, ?, 'DRAFT', 'OPNAME', ?, ?)`,
+            [adjNo, session.opname_date, `Stock Opname ${session.session_no}`, userId]
+        );
+
+        const adjId = adjResult.insertId;
+
+        // Insert adjustment lines and process stock updates
+        let lineNo = 1;
+        for (const item of items) {
+            const variance = Number(item.variance);
+            const reasonCode = variance < 0 ? 'LOST' : 'FOUND';
+
+            // Get current avg cost
+            const [itemRow] = await queryTx<RowDataPacket[]>(
+                connection,
+                'SELECT avg_cost FROM items WHERE id = ?',
+                [item.item_id]
+            );
+            const unitCost = Number(itemRow?.avg_cost || 0);
+
+            await executeTx(
+                connection,
+                `INSERT INTO inventory_adjustment_lines
+                 (adjustment_id, line_no, item_id, qty_delta, unit_cost, reason_code, memo)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [adjId, lineNo++, item.item_id, variance, unitCost, reasonCode, item.notes || null]
+            );
+
+            // Update stock
+            await updateStock(connection, {
+                itemId: item.item_id,
+                qtyDelta: variance,
+                unitCost,
+                sourceType: 'OPNAME',
+                sourceId: sessionId,
+                memo: `Opname: ${session.session_no}`,
+            }, false);
+        }
+
+        // Mark adjustment as posted
+        await executeTx(
+            connection,
+            `UPDATE inventory_adjustments 
+             SET status = 'POSTED', posted_by = ?, posted_at = NOW() 
+             WHERE id = ?`,
+            [userId, adjId]
+        );
+
+        // Mark session as posted
+        await executeTx(
+            connection,
+            `UPDATE stock_opname_sessions 
+             SET status = 'POSTED', adjustment_id = ?, posted_at = NOW(), posted_by = ? 
+             WHERE id = ?`,
+            [adjId, userId, sessionId]
+        );
+
+        // Store idempotency key
+        await executeTx(
+            connection,
+            `INSERT INTO idempotency_keys (key_value, entity_type, entity_id, expires_at)
+             VALUES (?, 'STOCK_OPNAME', ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))`,
+            [idempotencyKey, sessionId]
+        );
+
+        // Audit log
+        await createAuditLogTx(connection, {
+            action: 'POST',
+            entityType: 'STOCK_OPNAME',
+            entityId: sessionId,
+            actorUserId: userId,
+            metadata: { sessionNo: session.session_no, adjustmentId: adjId },
+        });
+
+        return adjId;
+    });
+}
+

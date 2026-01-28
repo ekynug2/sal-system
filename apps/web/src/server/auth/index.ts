@@ -189,7 +189,8 @@ export async function login(email: string, password: string): Promise<{ user: Us
     const token = await generateToken({ userId: user.id, email: user.email });
 
     // Remove passwordHash from returned user
-    const { passwordHash: _, ...safeUser } = user;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash, ...safeUser } = user;
 
     return {
         user: safeUser,

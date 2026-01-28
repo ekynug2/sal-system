@@ -23,7 +23,7 @@ export default function CreatePurchasePaymentPage() {
 
     // Master Data
     const { data: suppliersData } = useSuppliers();
-    const suppliers = suppliersData || [];
+    const suppliers = suppliersData?.data || [];
 
     // State
     const [supplierId, setSupplierId] = useState<number | null>(null);

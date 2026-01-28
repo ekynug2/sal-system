@@ -6,7 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost, generateIdempotencyKey } from '@/lib/api-client';
-import type { SalesInvoice, PaginatedResponse } from '@/shared/types';
+import type { SalesInvoice, PaginatedResponse, SalesPayment, SalesCreditNote } from '@/shared/types';
 
 // Query Keys
 export const salesKeys = {
@@ -111,5 +111,29 @@ export function useReceivePayment() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: salesKeys.all });
         },
+    });
+}
+
+export function useSalesPayments(params: {
+    page?: number;
+    limit?: number;
+    customerId?: number;
+    search?: string;
+} = {}) {
+    return useQuery({
+        queryKey: salesKeys.paymentList(params),
+        queryFn: () => apiGet<PaginatedResponse<SalesPayment>>('/sales/payments', params),
+    });
+}
+
+export function useSalesCreditNotes(params: {
+    page?: number;
+    limit?: number;
+    customerId?: number;
+    status?: string;
+} = {}) {
+    return useQuery({
+        queryKey: [...salesKeys.all, 'credit-notes', params],
+        queryFn: () => apiGet<PaginatedResponse<SalesCreditNote>>('/sales/credit-notes', params),
     });
 }

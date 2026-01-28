@@ -135,7 +135,7 @@ export default function InvoiceDetailPage() {
                             Invoice Not Found
                         </h3>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-2)' }}>
-                            The invoice you're looking for doesn't exist or you don't have permission to view it.
+                            The invoice you&apos;re looking for doesn&apos;t exist or you don&apos;t have permission to view it.
                         </p>
                         <button
                             className="btn btn-primary"

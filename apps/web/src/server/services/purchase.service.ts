@@ -217,11 +217,27 @@ export async function createPurchaseBill(
 
         const linesWithCalc = [];
 
+        // 1. Calculate totals
+        // Pre-fetch tax rates
+        const taxCodes = [...new Set(input.lines.map(l => l.taxCode))];
+        const taxRates = new Map<string, number>();
+
+        if (taxCodes.length > 0) {
+            const taxRows = await queryTx<RowDataPacket[]>(
+                connection,
+                `SELECT code, rate FROM tax_codes WHERE code IN (${taxCodes.map(() => '?').join(',')})`,
+                taxCodes
+            );
+            for (const row of taxRows) {
+                taxRates.set(row.code, Number(row.rate));
+            }
+        }
+
         for (const line of input.lines) {
             const lineSubtotal = line.qty * line.unitCost;
 
             // Get tax rate
-            const { rate: taxRate } = await getTaxAccounts(connection, line.taxCode);
+            const taxRate = taxRates.get(line.taxCode) ?? 0;
 
             const lineTax = (lineSubtotal * taxRate) / 100;
             const lineTotal = lineSubtotal + lineTax;
@@ -268,14 +284,11 @@ export async function createPurchaseBill(
 
         // 4. Insert Lines
         let lineNo = 1;
-        for (const line of linesWithCalc) {
-            await executeTx(
-                connection,
-                `INSERT INTO purchase_bill_lines
-                 (bill_id, line_no, item_id, description, qty, unit_cost, 
-                  tax_code, tax_rate, line_subtotal, line_tax, line_total, memo)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
+        // 4. Insert Lines (Bulk)
+        if (linesWithCalc.length > 0) {
+            const lineValues: any[] = [];
+            const placeholders = linesWithCalc.map(line => {
+                lineValues.push(
                     billId,
                     lineNo++,
                     line.itemId,
@@ -287,8 +300,18 @@ export async function createPurchaseBill(
                     line.lineSubtotal,
                     line.lineTax,
                     line.lineTotal,
-                    line.memo || null,
-                ]
+                    line.memo || null
+                );
+                return '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            }).join(', ');
+
+            await executeTx(
+                connection,
+                `INSERT INTO purchase_bill_lines
+                 (bill_id, line_no, item_id, description, qty, unit_cost, 
+                  tax_code, tax_rate, line_subtotal, line_tax, line_total, memo)
+                 VALUES ${placeholders}`,
+                lineValues
             );
         }
 
@@ -531,27 +554,36 @@ export async function createPurchasePayment(
         const paymentId = result.insertId;
 
         // 5. Create Allocations & Update Bills
-        for (const alloc of input.allocations) {
-            // Insert allocation
+        // 5. Create Allocations & Update Bills
+        if (input.allocations.length > 0) {
+            // Bulk Insert Allocations
+            const allocValues: any[] = [];
+            const placeholders = input.allocations.map(alloc => {
+                allocValues.push(paymentId, alloc.billId, alloc.amount);
+                return '(?, ?, ?)';
+            });
+
             await executeTx(
                 connection,
-                'INSERT INTO purchase_payment_allocations (payment_id, bill_id, amount) VALUES (?, ?, ?)',
-                [paymentId, alloc.billId, alloc.amount]
+                `INSERT INTO purchase_payment_allocations (payment_id, bill_id, amount) VALUES ${placeholders.join(', ')}`,
+                allocValues
             );
 
-            // Update Bill
-            await executeTx(
-                connection,
-                `UPDATE purchase_bills 
-                 SET paid_amount = paid_amount + ?,
-                     status = CASE 
-                        WHEN paid_amount + ? >= grand_total - 0.01 THEN 'PAID'
-                        ELSE 'PARTIALLY_PAID'
-                     END,
-                     updated_at = NOW()
-                 WHERE id = ?`,
-                [alloc.amount, alloc.amount, alloc.billId]
-            );
+            // Update Bills (Sequential execution for status logic safety)
+            for (const alloc of input.allocations) {
+                await executeTx(
+                    connection,
+                    `UPDATE purchase_bills 
+                     SET paid_amount = paid_amount + ?,
+                         status = CASE 
+                            WHEN paid_amount + ? >= grand_total - 0.01 THEN 'PAID'
+                            ELSE 'PARTIALLY_PAID'
+                         END,
+                         updated_at = NOW()
+                     WHERE id = ?`,
+                    [alloc.amount, alloc.amount, alloc.billId]
+                );
+            }
         }
 
         // 6. Journal Entry
@@ -602,3 +634,341 @@ export async function createPurchasePayment(
         return paymentId;
     });
 }
+
+// -----------------------------------------------------------------------------
+// Get Purchase Payments
+// -----------------------------------------------------------------------------
+
+interface PurchasePaymentRow extends RowDataPacket {
+    id: number;
+    payment_no: string;
+    supplier_id: number;
+    supplier_name: string;
+    payment_date: string;
+    method: string;
+    bank_account_id: number | null;
+    amount_total: number;
+    reference_no: string | null;
+    memo: string | null;
+}
+
+export async function getPurchasePayments(params: {
+    supplierId?: number;
+    search?: string;
+    page?: number;
+    limit?: number;
+}): Promise<{ payments: import('../../shared/types').PurchasePayment[]; total: number }> {
+    const conditions: string[] = [];
+    const values: (string | number)[] = [];
+
+    if (params.supplierId) {
+        conditions.push('pp.supplier_id = ?');
+        values.push(params.supplierId);
+    }
+
+    if (params.search) {
+        conditions.push('(pp.payment_no LIKE ? OR s.name LIKE ? OR pp.reference_no LIKE ?)');
+        const term = `%${params.search}%`;
+        values.push(term, term, term);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const offset = (page - 1) * limit;
+
+    // Get total
+    const [countResult] = await query<RowDataPacket[]>(
+        `SELECT COUNT(*) as total FROM purchase_payments pp
+         INNER JOIN suppliers s ON s.id = pp.supplier_id
+         ${whereClause}`,
+        values
+    );
+    const total = countResult?.total || 0;
+
+    // Get payments
+    const rows = await query<PurchasePaymentRow[]>(
+        `SELECT pp.*, s.name as supplier_name
+         FROM purchase_payments pp
+         INNER JOIN suppliers s ON s.id = pp.supplier_id
+         ${whereClause}
+         ORDER BY pp.payment_date DESC, pp.id DESC
+         LIMIT ? OFFSET ?`,
+        [...values, limit, offset]
+    );
+
+    const payments = rows.map(r => ({
+        id: r.id,
+        paymentNo: r.payment_no,
+        supplierId: r.supplier_id,
+        supplierName: r.supplier_name,
+        paymentDate: r.payment_date,
+        method: r.method as import('../../shared/types').PaymentMethod,
+        bankAccountId: r.bank_account_id || undefined,
+        amountTotal: Number(r.amount_total),
+        referenceNo: r.reference_no || undefined,
+        memo: r.memo || undefined,
+        allocations: [],
+    }));
+
+    return { payments, total };
+}
+
+// -----------------------------------------------------------------------------
+// Purchase Receipts
+// -----------------------------------------------------------------------------
+
+interface PurchaseReceiptRow extends RowDataPacket {
+    id: number;
+    receipt_no: string;
+    supplier_id: number;
+    supplier_name: string;
+    receipt_date: string;
+    status: string;
+    reference_no: string | null;
+    memo: string | null;
+}
+
+export interface CreatePurchaseReceiptInput {
+    supplierId: number;
+    receiptDate: string;
+    referenceNo?: string;
+    memo?: string;
+    lines: {
+        itemId: number;
+        qty: number;
+        unitCost: number;
+        taxCode: string;
+        memo?: string;
+    }[];
+}
+
+export async function getPurchaseReceipts(params: {
+    supplierId?: number;
+    status?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+}): Promise<{ receipts: import('../../shared/types').PurchaseReceipt[]; total: number }> {
+    const conditions: string[] = [];
+    const values: (string | number)[] = [];
+
+    if (params.supplierId) {
+        conditions.push('pr.supplier_id = ?');
+        values.push(params.supplierId);
+    }
+
+    if (params.status) {
+        conditions.push('pr.status = ?');
+        values.push(params.status);
+    }
+
+    if (params.search) {
+        conditions.push('(pr.receipt_no LIKE ? OR s.name LIKE ? OR pr.reference_no LIKE ?)');
+        const term = `%${params.search}%`;
+        values.push(term, term, term);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const offset = (page - 1) * limit;
+
+    // Get total
+    const [countResult] = await query<RowDataPacket[]>(
+        `SELECT COUNT(*) as total FROM purchase_receipts pr
+         INNER JOIN suppliers s ON s.id = pr.supplier_id
+         ${whereClause}`,
+        values
+    );
+    const total = countResult?.total || 0;
+
+    // Get receipts
+    const rows = await query<PurchaseReceiptRow[]>(
+        `SELECT pr.*, s.name as supplier_name
+         FROM purchase_receipts pr
+         INNER JOIN suppliers s ON s.id = pr.supplier_id
+         ${whereClause}
+         ORDER BY pr.receipt_date DESC, pr.id DESC
+         LIMIT ? OFFSET ?`,
+        [...values, limit, offset]
+    );
+
+    const receipts = rows.map(r => ({
+        id: r.id,
+        receiptNo: r.receipt_no,
+        supplierId: r.supplier_id,
+        supplierName: r.supplier_name,
+        receiptDate: r.receipt_date,
+        status: r.status as import('../../shared/types').DocumentStatus,
+        referenceNo: r.reference_no || undefined,
+        memo: r.memo || undefined,
+        lines: [],
+    }));
+
+    return { receipts, total };
+}
+
+export async function createPurchaseReceipt(
+    input: CreatePurchaseReceiptInput,
+    userId: number
+): Promise<number> {
+    return transaction(async (connection) => {
+        // Generate receipt number
+        const receiptNo = await getNextNumber(connection, SequenceKeys.PURCHASE_RECEIPT);
+
+        // Get tax rates for lines
+        const taxRates = new Map<string, number>();
+        for (const line of input.lines) {
+            if (!taxRates.has(line.taxCode)) {
+                const taxInfo = await getTaxAccounts(connection, line.taxCode);
+                taxRates.set(line.taxCode, taxInfo.rate);
+            }
+        }
+
+        // Insert receipt header
+        const result = await executeTx(
+            connection,
+            `INSERT INTO purchase_receipts 
+             (receipt_no, supplier_id, receipt_date, status, reference_no, memo, created_by)
+             VALUES (?, ?, ?, 'DRAFT', ?, ?, ?)`,
+            [
+                receiptNo,
+                input.supplierId,
+                input.receiptDate,
+                input.referenceNo || null,
+                input.memo || null,
+                userId,
+            ]
+        );
+
+        const receiptId = result.insertId;
+
+        // Insert lines
+        for (let i = 0; i < input.lines.length; i++) {
+            const line = input.lines[i];
+            const taxRate = taxRates.get(line.taxCode) || 0;
+            const lineValue = line.qty * line.unitCost;
+            const lineTax = lineValue * taxRate;
+
+            await executeTx(
+                connection,
+                `INSERT INTO purchase_receipt_lines 
+                 (receipt_id, line_no, item_id, qty, unit_cost, tax_code, tax_rate, line_value, line_tax, memo)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    receiptId,
+                    i + 1,
+                    line.itemId,
+                    line.qty,
+                    line.unitCost,
+                    line.taxCode,
+                    taxRate,
+                    lineValue,
+                    lineTax,
+                    line.memo || null,
+                ]
+            );
+        }
+
+        // Audit log
+        await createAuditLogTx(connection, {
+            actorUserId: userId,
+            action: 'CREATE',
+            entityType: 'PURCHASE_RECEIPT',
+            entityId: receiptId,
+            afterData: { receiptNo, supplierId: input.supplierId },
+        });
+
+        return receiptId;
+    });
+}
+
+export async function postPurchaseReceipt(
+    receiptId: number,
+    userId: number,
+    idempotencyKey: string
+): Promise<void> {
+    return transaction(async (connection) => {
+        // Check idempotency
+        const existingKey = await queryTx<RowDataPacket[]>(
+            connection,
+            'SELECT id FROM idempotency_keys WHERE key_value = ?',
+            [idempotencyKey]
+        );
+
+        if (existingKey.length > 0) {
+            return;
+        }
+
+        // Lock and get receipt
+        const receiptRows = await queryTx<PurchaseReceiptRow[]>(
+            connection,
+            `SELECT pr.*, s.name as supplier_name
+             FROM purchase_receipts pr
+             INNER JOIN suppliers s ON s.id = pr.supplier_id
+             WHERE pr.id = ? FOR UPDATE`,
+            [receiptId]
+        );
+
+        if (receiptRows.length === 0) {
+            throw new PurchaseError(ErrorCodes.RESOURCE_NOT_FOUND, 'Receipt not found', 404);
+        }
+
+        const receipt = receiptRows[0];
+
+        if (receipt.status !== 'DRAFT') {
+            throw new PurchaseError(ErrorCodes.PRC_RECEIPT_ALREADY_POSTED, 'Receipt already posted', 409);
+        }
+
+        // Get lines
+        const lines = await queryTx<RowDataPacket[]>(
+            connection,
+            `SELECT prl.*, i.track_inventory
+             FROM purchase_receipt_lines prl
+             INNER JOIN items i ON i.id = prl.item_id
+             WHERE prl.receipt_id = ?`,
+            [receiptId]
+        );
+
+        // Update stock for each line
+        for (const line of lines) {
+            if (line.track_inventory) {
+                await updateStock(connection, {
+                    itemId: line.item_id,
+                    qtyDelta: Number(line.qty),
+                    unitCost: Number(line.unit_cost),
+                    sourceType: SourceType.PURCHASE_RECEIPT,
+                    sourceId: receiptId,
+                    sourceLineId: line.id,
+                    memo: `Receipt ${receipt.receipt_no}`,
+                }, false);
+            }
+        }
+
+        // Update receipt status
+        await executeTx(
+            connection,
+            `UPDATE purchase_receipts SET status = 'POSTED', posted_at = NOW(), posted_by = ? WHERE id = ?`,
+            [userId, receiptId]
+        );
+
+        // Store idempotency key
+        await executeTx(
+            connection,
+            `INSERT INTO idempotency_keys (key_value, entity_type, entity_id, expires_at)
+             VALUES (?, 'PURCHASE_RECEIPT', ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))`,
+            [idempotencyKey, receiptId]
+        );
+
+        // Audit log
+        await createAuditLogTx(connection, {
+            actorUserId: userId,
+            action: 'POST',
+            entityType: 'PURCHASE_RECEIPT',
+            entityId: receiptId,
+            afterData: { status: 'POSTED' },
+        });
+    });
+}
+
