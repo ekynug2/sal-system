@@ -1,0 +1,457 @@
+'use client';
+
+// =============================================================================
+// SAL Accounting System - Chart of Accounts Page
+// =============================================================================
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/ui/providers/auth-provider';
+import { Sidebar } from '@/ui/components/sidebar';
+import { useChartOfAccounts, useCreateAccount } from '@/hooks/use-accounting';
+import type { ChartOfAccount } from '@/shared/types';
+import {
+    Search,
+    Plus,
+    ChevronRight,
+    ChevronDown,
+    Loader2,
+    BookOpen,
+    FolderOpen,
+    FileText,
+    X,
+    Save,
+} from 'lucide-react';
+import { Permissions } from '@/shared/constants';
+
+// Account type badges
+const typeColors: Record<string, string> = {
+    ASSET: 'badge-info',
+    LIABILITY: 'badge-warning',
+    EQUITY: 'badge-secondary',
+    REVENUE: 'badge-success',
+    EXPENSE: 'badge-danger',
+    COGS: 'badge-danger',
+};
+
+const typeLabels: Record<string, string> = {
+    ASSET: 'Asset',
+    LIABILITY: 'Liability',
+    EQUITY: 'Equity',
+    REVENUE: 'Revenue',
+    EXPENSE: 'Expense',
+    COGS: 'COGS',
+};
+
+export default function ChartOfAccountsPage() {
+    const router = useRouter();
+    const { user, isLoading: authLoading, hasPermission } = useAuth();
+    const [search, setSearch] = useState('');
+    const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+    const [showModal, setShowModal] = useState(false);
+
+    // Fetch flat for search, tree for normal view
+    const { data: accounts, isLoading, refetch } = useChartOfAccounts({
+        flat: search.length > 0,
+        search: search || undefined,
+    });
+
+    if (authLoading) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+                <Loader2 className="animate-spin" size={32} />
+            </div>
+        );
+    }
+
+    if (!user) {
+        router.push('/login');
+        return null;
+    }
+
+    const toggleExpand = (id: number) => {
+        setExpandedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    const expandAll = () => {
+        if (accounts) {
+            const allIds = new Set<number>();
+            const collectIds = (accs: ChartOfAccount[]) => {
+                for (const acc of accs) {
+                    if (acc.children && acc.children.length > 0) {
+                        allIds.add(acc.id);
+                        collectIds(acc.children);
+                    }
+                }
+            };
+            collectIds(accounts);
+            setExpandedIds(allIds);
+        }
+    };
+
+    const collapseAll = () => {
+        setExpandedIds(new Set());
+    };
+
+    return (
+        <div className="app-layout">
+            <Sidebar />
+            <main className="main-content">
+                {/* Header */}
+                <div className="page-header">
+                    <div>
+                        <h1 className="page-title">Chart of Accounts</h1>
+                        <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
+                            Manage your accounts structure
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        {hasPermission(Permissions.COA_CREATE) && (
+                            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+                                <Plus size={18} />
+                                New Account
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Toolbar */}
+                <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                        <div style={{ position: 'relative', flex: 1, minWidth: 250 }}>
+                            <Search size={18} style={{ position: 'absolute', left: 12, top: 11, color: 'var(--text-muted)' }} />
+                            <input
+                                type="text"
+                                placeholder="Search accounts..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                style={{ paddingLeft: 42, width: '100%' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                            <button className="btn btn-secondary btn-sm" onClick={expandAll}>
+                                <ChevronDown size={16} /> Expand All
+                            </button>
+                            <button className="btn btn-secondary btn-sm" onClick={collapseAll}>
+                                <ChevronRight size={16} /> Collapse All
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Accounts Table */}
+                <div className="card" style={{ overflow: 'hidden' }}>
+                    {isLoading ? (
+                        <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
+                            <Loader2 className="animate-spin" size={32} />
+                            <p style={{ marginTop: 'var(--space-2)', color: 'var(--text-muted)' }}>
+                                Loading accounts...
+                            </p>
+                        </div>
+                    ) : !accounts || accounts.length === 0 ? (
+                        <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
+                            <BookOpen size={48} style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-2)' }} />
+                            <p style={{ color: 'var(--text-muted)' }}>No accounts found</p>
+                        </div>
+                    ) : (
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style={{ width: 140 }}>Code</th>
+                                    <th>Account Name</th>
+                                    <th style={{ width: 120 }}>Type</th>
+                                    <th style={{ width: 80, textAlign: 'center' }}>Header</th>
+                                    <th style={{ width: 80, textAlign: 'center' }}>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {search.length > 0 ? (
+                                    // Flat view for search
+                                    accounts.map(account => (
+                                        <AccountRow key={account.id} account={account} level={0} expanded={false} onToggle={() => { }} />
+                                    ))
+                                ) : (
+                                    // Tree view
+                                    accounts.map(account => (
+                                        <AccountTree
+                                            key={account.id}
+                                            account={account}
+                                            level={0}
+                                            expandedIds={expandedIds}
+                                            onToggle={toggleExpand}
+                                        />
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+
+                {/* Create Modal */}
+                {showModal && (
+                    <CreateAccountModal
+                        accounts={accounts || []}
+                        onClose={() => setShowModal(false)}
+                        onSuccess={() => {
+                            setShowModal(false);
+                            refetch();
+                        }}
+                    />
+                )}
+            </main>
+        </div>
+    );
+}
+
+// Account Tree Component (recursive)
+function AccountTree({
+    account,
+    level,
+    expandedIds,
+    onToggle,
+}: {
+    account: ChartOfAccount;
+    level: number;
+    expandedIds: Set<number>;
+    onToggle: (id: number) => void;
+}) {
+    const hasChildren = account.children && account.children.length > 0;
+    const isExpanded = expandedIds.has(account.id);
+
+    return (
+        <>
+            <AccountRow
+                account={account}
+                level={level}
+                expanded={isExpanded}
+                hasChildren={hasChildren}
+                onToggle={() => onToggle(account.id)}
+            />
+            {hasChildren && isExpanded && account.children!.map(child => (
+                <AccountTree
+                    key={child.id}
+                    account={child}
+                    level={level + 1}
+                    expandedIds={expandedIds}
+                    onToggle={onToggle}
+                />
+            ))}
+        </>
+    );
+}
+
+// Account Row Component
+function AccountRow({
+    account,
+    level,
+    expanded,
+    hasChildren,
+    onToggle,
+}: {
+    account: ChartOfAccount;
+    level: number;
+    expanded: boolean;
+    hasChildren?: boolean;
+    onToggle: () => void;
+}) {
+    return (
+        <tr style={{ background: level > 0 ? `rgba(var(--primary-rgb), ${0.02 * level})` : undefined }}>
+            <td style={{ fontFamily: 'var(--font-mono)', fontWeight: account.isHeader ? 600 : 400 }}>
+                {account.accountCode}
+            </td>
+            <td>
+                <div style={{ display: 'flex', alignItems: 'center', paddingLeft: level * 24 }}>
+                    {hasChildren ? (
+                        <button
+                            onClick={onToggle}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                padding: 4,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                marginRight: 4,
+                            }}
+                        >
+                            {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        </button>
+                    ) : (
+                        <span style={{ width: 24 }} />
+                    )}
+                    {account.isHeader ? (
+                        <FolderOpen size={16} style={{ marginRight: 8, color: 'var(--primary-500)' }} />
+                    ) : (
+                        <FileText size={16} style={{ marginRight: 8, color: 'var(--text-muted)' }} />
+                    )}
+                    <span style={{ fontWeight: account.isHeader ? 600 : 400 }}>
+                        {account.accountName}
+                    </span>
+                </div>
+            </td>
+            <td>
+                <span className={`badge ${typeColors[account.accountTypeCode] || 'badge-secondary'}`}>
+                    {typeLabels[account.accountTypeCode] || account.accountTypeCode}
+                </span>
+            </td>
+            <td style={{ textAlign: 'center' }}>
+                {account.isHeader && (
+                    <span style={{ color: 'var(--primary-500)', fontWeight: 500 }}>✓</span>
+                )}
+            </td>
+            <td style={{ textAlign: 'center' }}>
+                <span className={`badge ${account.isActive ? 'badge-success' : 'badge-secondary'}`}>
+                    {account.isActive ? 'Active' : 'Inactive'}
+                </span>
+            </td>
+        </tr>
+    );
+}
+
+// Create Account Modal
+function CreateAccountModal({
+    accounts,
+    onClose,
+    onSuccess,
+}: {
+    accounts: ChartOfAccount[];
+    onClose: () => void;
+    onSuccess: () => void;
+}) {
+    const createAccount = useCreateAccount();
+    const [formData, setFormData] = useState({
+        accountCode: '',
+        accountName: '',
+        accountTypeCode: 'ASSET',
+        parentId: '',
+        isHeader: false,
+        description: '',
+    });
+
+    // Flatten accounts for parent dropdown
+    const flatAccounts: ChartOfAccount[] = [];
+    const flatten = (accs: ChartOfAccount[]) => {
+        for (const acc of accs) {
+            flatAccounts.push(acc);
+            if (acc.children) flatten(acc.children);
+        }
+    };
+    flatten(accounts);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await createAccount.mutateAsync({
+                accountCode: formData.accountCode,
+                accountName: formData.accountName,
+                accountTypeCode: formData.accountTypeCode,
+                parentId: formData.parentId ? Number(formData.parentId) : undefined,
+                isHeader: formData.isHeader,
+                description: formData.description || undefined,
+            });
+            onSuccess();
+        } catch (err) {
+            alert(`Failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        }
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                <div className="modal-header">
+                    <h2>Create New Account</h2>
+                    <button className="btn btn-ghost" onClick={onClose}><X size={20} /></button>
+                </div>
+                <form onSubmit={handleSubmit}>
+                    <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                        <div>
+                            <label className="label">Account Code *</label>
+                            <input
+                                type="text"
+                                required
+                                value={formData.accountCode}
+                                onChange={e => setFormData({ ...formData, accountCode: e.target.value })}
+                                placeholder="e.g. 1-1100"
+                            />
+                        </div>
+                        <div>
+                            <label className="label">Account Name *</label>
+                            <input
+                                type="text"
+                                required
+                                value={formData.accountName}
+                                onChange={e => setFormData({ ...formData, accountName: e.target.value })}
+                                placeholder="e.g. Cash in Bank"
+                            />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
+                            <div>
+                                <label className="label">Account Type *</label>
+                                <select
+                                    required
+                                    value={formData.accountTypeCode}
+                                    onChange={e => setFormData({ ...formData, accountTypeCode: e.target.value })}
+                                >
+                                    <option value="ASSET">Asset</option>
+                                    <option value="LIABILITY">Liability</option>
+                                    <option value="EQUITY">Equity</option>
+                                    <option value="REVENUE">Revenue</option>
+                                    <option value="EXPENSE">Expense</option>
+                                    <option value="COGS">COGS</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="label">Parent Account</label>
+                                <select
+                                    value={formData.parentId}
+                                    onChange={e => setFormData({ ...formData, parentId: e.target.value })}
+                                >
+                                    <option value="">None (Top Level)</option>
+                                    {flatAccounts.filter(a => a.isHeader).map(a => (
+                                        <option key={a.id} value={a.id}>
+                                            {a.accountCode} - {a.accountName}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={formData.isHeader}
+                                    onChange={e => setFormData({ ...formData, isHeader: e.target.checked })}
+                                />
+                                This is a header account (group)
+                            </label>
+                        </div>
+                        <div>
+                            <label className="label">Description</label>
+                            <textarea
+                                value={formData.description}
+                                onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                rows={2}
+                                placeholder="Optional description..."
+                            />
+                        </div>
+                    </div>
+                    <div className="modal-footer">
+                        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+                        <button type="submit" className="btn btn-primary" disabled={createAccount.isPending}>
+                            {createAccount.isPending ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                            Create Account
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}

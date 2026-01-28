@@ -57,8 +57,8 @@ export default function CreateInvoicePage() {
     const { data: customersData, isLoading: custLoading } = useCustomers({ activeOnly: true });
     const { data: itemsData, isLoading: itemsLoading } = useItems({ sellableOnly: true });
 
-    const customers = customersData || [];
-    const items = itemsData || [];
+    const customers = customersData?.data || [];
+    const items = itemsData?.data || [];
 
     const [customerId, setCustomerId] = useState<number | null>(null);
     const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);

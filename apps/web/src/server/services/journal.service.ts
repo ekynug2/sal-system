@@ -104,15 +104,11 @@ export async function createJournalEntry(
 
     const journalEntryId = result.insertId;
 
-    // Insert journal lines
-    for (let i = 0; i < input.lines.length; i++) {
-        const line = input.lines[i];
-        await executeTx(
-            connection,
-            `INSERT INTO journal_lines 
-       (journal_entry_id, line_no, account_id, dc, amount, memo, entity_type, entity_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
+    // Insert journal lines (Bulk)
+    if (input.lines.length > 0) {
+        const lineValues: any[] = [];
+        const placeholders = input.lines.map((line, i) => {
+            lineValues.push(
                 journalEntryId,
                 i + 1,
                 line.accountId,
@@ -120,8 +116,17 @@ export async function createJournalEntry(
                 line.amount,
                 line.memo || null,
                 line.entityType || null,
-                line.entityId || null,
-            ]
+                line.entityId || null
+            );
+            return '(?, ?, ?, ?, ?, ?, ?, ?)';
+        }).join(', ');
+
+        await executeTx(
+            connection,
+            `INSERT INTO journal_lines 
+       (journal_entry_id, line_no, account_id, dc, amount, memo, entity_type, entity_id)
+       VALUES ${placeholders}`,
+            lineValues
         );
     }
 
@@ -235,11 +240,38 @@ export async function getJournalEntries(params: {
         [...values, limit, offset]
     );
 
-    // Get lines for each entry
-    const entries: JournalEntry[] = [];
-    for (const row of rows) {
-        const lines = await getJournalLines(row.id);
-        entries.push({
+    // Get lines for all entries (Bulk)
+    if (rows.length > 0) {
+        const entryIds = rows.map(r => r.id);
+        const lineRows = await query<JournalLineRow[]>(
+            `SELECT jl.*, coa.account_code, coa.account_name
+             FROM journal_lines jl
+             INNER JOIN chart_of_accounts coa ON coa.id = jl.account_id
+             WHERE jl.journal_entry_id IN (${entryIds.map(() => '?').join(',')})
+             ORDER BY jl.journal_entry_id, jl.line_no`,
+            entryIds
+        );
+
+        // Group lines by entryId
+        const linesMap = new Map<number, JournalLine[]>();
+        for (const r of lineRows) {
+            const entryId = r.journal_entry_id;
+            if (!linesMap.has(entryId)) linesMap.set(entryId, []);
+
+            linesMap.get(entryId)!.push({
+                lineNo: r.line_no,
+                accountId: r.account_id,
+                accountCode: r.account_code,
+                accountName: r.account_name,
+                dc: r.dc,
+                amount: Number(r.amount),
+                memo: r.memo || undefined,
+                entityType: r.entity_type || undefined,
+                entityId: r.entity_id || undefined,
+            });
+        }
+
+        const entries: JournalEntry[] = rows.map(row => ({
             id: row.id,
             entryNo: row.entry_no,
             entryDate: row.entry_date,
@@ -252,38 +284,16 @@ export async function getJournalEntries(params: {
             totalCredit: Number(row.total_credit),
             postedAt: row.posted_at,
             postedBy: row.posted_by,
-            lines,
-        });
+            lines: linesMap.get(row.id) || [],
+        }));
+
+        return { entries, total };
     }
 
-    return { entries, total };
+    return { entries: [], total };
 }
 
-/**
- * Get journal lines for an entry
- */
-async function getJournalLines(journalEntryId: number): Promise<JournalLine[]> {
-    const rows = await query<JournalLineRow[]>(
-        `SELECT jl.*, coa.account_code, coa.account_name
-     FROM journal_lines jl
-     INNER JOIN chart_of_accounts coa ON coa.id = jl.account_id
-     WHERE jl.journal_entry_id = ?
-     ORDER BY jl.line_no`,
-        [journalEntryId]
-    );
 
-    return rows.map(r => ({
-        lineNo: r.line_no,
-        accountId: r.account_id,
-        accountCode: r.account_code,
-        accountName: r.account_name,
-        dc: r.dc,
-        amount: Number(r.amount),
-        memo: r.memo || undefined,
-        entityType: r.entity_type || undefined,
-        entityId: r.entity_id || undefined,
-    }));
-}
 
 /**
  * Get default account ID by mapping key

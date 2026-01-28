@@ -6,7 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost, generateIdempotencyKey } from '@/lib/api-client';
-import type { PurchaseBill, PaginatedResponse } from '@/shared/types';
+import type { PurchaseBill, PaginatedResponse, PurchasePayment, PurchaseReceipt } from '@/shared/types';
 
 // Query Keys
 export const purchaseKeys = {
@@ -105,6 +105,30 @@ export function useCreatePurchasePayment() {
             queryClient.invalidateQueries({ queryKey: purchaseKeys.bills() });
             // Invalidate supplier balance if we had that query
         },
+    });
+}
+
+export function usePurchasePayments(params: {
+    page?: number;
+    limit?: number;
+    supplierId?: number;
+    search?: string;
+} = {}) {
+    return useQuery({
+        queryKey: [...purchaseKeys.all, 'payments', params],
+        queryFn: () => apiGet<PaginatedResponse<PurchasePayment>>('/purchases/payments', params),
+    });
+}
+
+export function usePurchaseReceipts(params: {
+    page?: number;
+    limit?: number;
+    supplierId?: number;
+    status?: string;
+} = {}) {
+    return useQuery({
+        queryKey: [...purchaseKeys.all, 'receipts', params],
+        queryFn: () => apiGet<PaginatedResponse<PurchaseReceipt>>('/purchases/receipts', params),
     });
 }
 

@@ -528,6 +528,7 @@ tr:hover td {
   animation: fadeIn var(--transition-fast);
 }
 
+.modal,
 .modal-content {
   background: var(--bg-primary);
   border-radius: var(--radius-xl);

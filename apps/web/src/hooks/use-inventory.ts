@@ -6,7 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost, generateIdempotencyKey } from '@/lib/api-client';
-import type { ItemStock, StockLedgerEntry, PaginatedResponse, InventoryAdjustment } from '@/shared/types';
+import type { ItemStock, StockLedgerEntry, PaginatedResponse, InventoryAdjustment, StockOpnameSession } from '@/shared/types';
 
 // Query Keys
 export const inventoryKeys = {
@@ -16,6 +16,9 @@ export const inventoryKeys = {
     adjustments: () => [...inventoryKeys.all, 'adjustments'] as const,
     adjustmentList: (filters: Record<string, unknown>) => [...inventoryKeys.adjustments(), 'list', filters] as const,
     adjustmentDetail: (id: number) => [...inventoryKeys.adjustments(), 'detail', id] as const,
+    opname: () => [...inventoryKeys.all, 'opname'] as const,
+    opnameList: (filters: Record<string, unknown>) => [...inventoryKeys.opname(), 'list', filters] as const,
+    opnameDetail: (id: number) => [...inventoryKeys.opname(), 'detail', id] as const,
 };
 
 // Hooks
@@ -91,5 +94,15 @@ export function usePostAdjustment() {
             queryClient.invalidateQueries({ queryKey: inventoryKeys.adjustments() });
             queryClient.invalidateQueries({ queryKey: inventoryKeys.adjustmentDetail(id) });
         },
+    });
+}
+
+export function useStockOpnameSessions(params: {
+    page?: number;
+    limit?: number;
+} = {}) {
+    return useQuery({
+        queryKey: inventoryKeys.opnameList(params),
+        queryFn: () => apiGet<PaginatedResponse<StockOpnameSession>>('/inventory/opname', params),
     });
 }

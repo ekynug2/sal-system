@@ -3,9 +3,9 @@
 // =============================================================================
 
 import { RowDataPacket } from 'mysql2';
-import { query, transaction, queryTx, executeTx, getConnection } from '../db';
-import type { PoolConnection } from 'mysql2/promise';
-import { ErrorCodes, SourceType, DocumentStatus, DefaultAccountKeys } from '../../shared/constants';
+import { query, transaction, queryTx, executeTx } from '../db';
+
+import { ErrorCodes, SourceType, DefaultAccountKeys } from '../../shared/constants';
 import { getNextNumber, SequenceKeys } from './sequence.service';
 import { createAuditLogTx } from './audit.service';
 import { validateDateNotLocked } from './period-lock.service';
@@ -87,6 +87,8 @@ interface SalesInvoiceLineRow extends RowDataPacket {
     line_total: number;
     unit_cost: number;
     memo: string | null;
+    track_inventory?: number;
+    avg_cost?: number;
 }
 
 export class SalesError extends Error {
@@ -170,7 +172,7 @@ export async function getSalesInvoices(params: {
         invoiceDate: r.invoice_date,
         dueDate: r.due_date,
         currency: r.currency,
-        status: r.status as any,
+        status: r.status as SalesInvoice['status'],
         subtotal: Number(r.subtotal),
         discountAmount: Number(r.discount_amount),
         taxTotal: Number(r.tax_total),
@@ -212,7 +214,7 @@ export async function getSalesInvoice(id: number): Promise<SalesInvoice | null> 
         invoiceDate: r.invoice_date,
         dueDate: r.due_date,
         currency: r.currency,
-        status: r.status as any,
+        status: r.status as SalesInvoice['status'],
         subtotal: Number(r.subtotal),
         discountAmount: Number(r.discount_amount),
         taxTotal: Number(r.tax_total),
@@ -274,10 +276,17 @@ export async function createSalesInvoice(
 
         // Get tax rates for lines
         const taxRates = new Map<string, number>();
-        for (const line of input.lines) {
-            if (!taxRates.has(line.taxCode)) {
-                const taxInfo = await getTaxAccounts(connection, line.taxCode);
-                taxRates.set(line.taxCode, taxInfo.rate);
+        const taxCodes = [...new Set(input.lines.map(l => l.taxCode))];
+
+        if (taxCodes.length > 0) {
+            const taxRows = await queryTx<RowDataPacket[]>(
+                connection,
+                `SELECT code, rate FROM tax_codes WHERE code IN (${taxCodes.map(() => '?').join(',')})`,
+                taxCodes
+            );
+
+            for (const row of taxRows) {
+                taxRates.set(row.code, Number(row.rate));
             }
         }
 
@@ -358,15 +367,11 @@ export async function createSalesInvoice(
 
         const invoiceId = result.insertId;
 
-        // Insert lines
-        for (const line of processedLines) {
-            await executeTx(
-                connection,
-                `INSERT INTO sales_invoice_lines 
-         (invoice_id, line_no, item_id, description, qty, unit_price, discount_rate, discount_amount,
-          tax_code, tax_rate, line_subtotal, line_tax, line_total, memo)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [
+        // Insert lines (Bulk)
+        if (processedLines.length > 0) {
+            const lineValues: any[] = [];
+            const placeholders = processedLines.map(line => {
+                lineValues.push(
                     invoiceId,
                     line.lineNo,
                     line.itemId,
@@ -380,8 +385,18 @@ export async function createSalesInvoice(
                     line.lineSubtotal,
                     line.lineTax,
                     line.lineTotal,
-                    line.memo || null,
-                ]
+                    line.memo || null
+                );
+                return '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            }).join(', ');
+
+            await executeTx(
+                connection,
+                `INSERT INTO sales_invoice_lines 
+                 (invoice_id, line_no, item_id, description, qty, unit_price, discount_rate, discount_amount,
+                  tax_code, tax_rate, line_subtotal, line_tax, line_total, memo)
+                 VALUES ${placeholders}`,
+                lineValues
             );
         }
 
@@ -456,7 +471,7 @@ export async function postSalesInvoice(
         // Check stock availability
         if (checkNegativeStock) {
             const stockItems = lineRows
-                .filter((l: any) => l.track_inventory)
+                .filter(l => l.track_inventory)
                 .map(l => ({ itemId: l.item_id, qty: Number(l.qty) }));
 
             if (stockItems.length > 0) {
@@ -481,8 +496,8 @@ export async function postSalesInvoice(
         // Process each line
         let totalCogs = 0;
         for (const line of lineRows) {
-            if ((line as any).track_inventory) {
-                const avgCost = Number((line as any).avg_cost);
+            if (line.track_inventory) {
+                const avgCost = Number(line.avg_cost);
                 const qty = Number(line.qty);
                 const lineCogs = qty * avgCost;
                 totalCogs += lineCogs;
@@ -635,7 +650,13 @@ export async function receivePayment(
             }
 
             const invoice = invoiceRows[0];
+
+            // Allow PARTIALLY_PAID status and ensure invoice is NOT PAID before accepting more money (unless overpayment logic exists, which is not here)
+            // But we already check balance.
+            // Status check:
             if (!['POSTED', 'PARTIALLY_PAID'].includes(invoice.status)) {
+                // ... (Logic remains same, just ensuring context)
+
                 throw new SalesError(
                     ErrorCodes.CONFLICT,
                     `Invoice ${invoice.invoice_no} is not in posted status`,
@@ -664,7 +685,7 @@ export async function receivePayment(
         }
 
         // Get bank account
-        let bankAccountId = input.bankAccountId;
+        const bankAccountId = input.bankAccountId;
         let bankCoaId: number;
 
         if (bankAccountId) {
@@ -706,26 +727,35 @@ export async function receivePayment(
         // Create allocations and update invoices
         const arAccountId = await getDefaultAccountId(connection, DefaultAccountKeys.AR_TRADE);
 
-        for (const alloc of input.allocations) {
-            // Insert allocation
+        // Create allocations (Bulk)
+        if (input.allocations.length > 0) {
+            const allocValues: any[] = [];
+            const placeholders = input.allocations.map(alloc => {
+                allocValues.push(paymentId, alloc.invoiceId, alloc.amount);
+                return '(?, ?, ?)';
+            });
+
             await executeTx(
                 connection,
-                'INSERT INTO sales_payment_allocations (payment_id, invoice_id, amount) VALUES (?, ?, ?)',
-                [paymentId, alloc.invoiceId, alloc.amount]
+                `INSERT INTO sales_payment_allocations (payment_id, invoice_id, amount) VALUES ${placeholders.join(', ')}`,
+                allocValues
             );
 
-            // Update invoice paid amount
-            const updateResult = await executeTx(
-                connection,
-                `UPDATE sales_invoices 
-         SET paid_amount = paid_amount + ?,
-             status = CASE 
-               WHEN paid_amount + ? >= grand_total THEN 'PAID'
-               ELSE 'PARTIALLY_PAID'
-             END
-         WHERE id = ?`,
-                [alloc.amount, alloc.amount, alloc.invoiceId]
-            );
+            // Update invoice statuses (Still sequential for safety/simplicity of paid status logic, 
+            // but could be optimized using CASE in future if performance demands)
+            for (const alloc of input.allocations) {
+                await executeTx(
+                    connection,
+                    `UPDATE sales_invoices 
+                     SET paid_amount = paid_amount + ?,
+                         status = CASE 
+                           WHEN paid_amount + ? >= grand_total THEN 'PAID'
+                           ELSE 'PARTIALLY_PAID'
+                         END
+                     WHERE id = ?`,
+                    [alloc.amount, alloc.amount, alloc.invoiceId]
+                );
+            }
         }
 
         // Create journal entry
@@ -778,5 +808,501 @@ export async function receivePayment(
         });
 
         return paymentId;
+    });
+}
+
+// -----------------------------------------------------------------------------
+// Get Sales Payments
+// -----------------------------------------------------------------------------
+
+interface SalesPaymentRow extends RowDataPacket {
+    id: number;
+    payment_no: string;
+    customer_id: number;
+    customer_name: string;
+    received_date: string;
+    method: string;
+    bank_account_id: number | null;
+    amount_total: number;
+    reference_no: string | null;
+    memo: string | null;
+}
+
+export async function getSalesPayments(params: {
+    customerId?: number;
+    search?: string;
+    page?: number;
+    limit?: number;
+}): Promise<{ payments: import('../../shared/types').SalesPayment[]; total: number }> {
+    const conditions: string[] = [];
+    const values: (string | number)[] = [];
+
+    if (params.customerId) {
+        conditions.push('sp.customer_id = ?');
+        values.push(params.customerId);
+    }
+
+    if (params.search) {
+        conditions.push('(sp.payment_no LIKE ? OR c.name LIKE ? OR sp.reference_no LIKE ?)');
+        const term = `%${params.search}%`;
+        values.push(term, term, term);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const offset = (page - 1) * limit;
+
+    // Get total
+    const [countResult] = await query<RowDataPacket[]>(
+        `SELECT COUNT(*) as total FROM sales_payments sp
+         INNER JOIN customers c ON c.id = sp.customer_id
+         ${whereClause}`,
+        values
+    );
+    const total = countResult?.total || 0;
+
+    // Get payments
+    const rows = await query<SalesPaymentRow[]>(
+        `SELECT sp.*, c.name as customer_name
+         FROM sales_payments sp
+         INNER JOIN customers c ON c.id = sp.customer_id
+         ${whereClause}
+         ORDER BY sp.received_date DESC, sp.id DESC
+         LIMIT ? OFFSET ?`,
+        [...values, limit, offset]
+    );
+
+    const payments = rows.map(r => ({
+        id: r.id,
+        paymentNo: r.payment_no,
+        customerId: r.customer_id,
+        customerName: r.customer_name,
+        receivedDate: r.received_date,
+        method: r.method as import('../../shared/types').PaymentMethod,
+        bankAccountId: r.bank_account_id || undefined,
+        amountTotal: Number(r.amount_total),
+        referenceNo: r.reference_no || undefined,
+        memo: r.memo || undefined,
+        allocations: [], // Can be fetched separately if needed
+    }));
+
+    return { payments, total };
+}
+
+// -----------------------------------------------------------------------------
+// Sales Credit Notes
+// -----------------------------------------------------------------------------
+
+export interface CreateCreditNoteInput {
+    invoiceId: number;
+    creditDate: string;
+    reasonCode: string;
+    restock: boolean;
+    lines: {
+        itemId: number;
+        qty: number;
+        unitPrice: number;
+        taxCode: string;
+        memo?: string;
+    }[];
+    memo?: string;
+}
+
+interface CreditNoteRow extends RowDataPacket {
+    id: number;
+    credit_note_no: string;
+    invoice_id: number;
+    invoice_no: string;
+    customer_id: number;
+    customer_name: string;
+    credit_date: string;
+    status: string;
+    reason_code: string;
+    restock: number;
+    subtotal: number;
+    tax_total: number;
+    grand_total: number;
+    memo: string | null;
+}
+
+export async function getSalesCreditNotes(params: {
+    customerId?: number;
+    status?: string;
+    page?: number;
+    limit?: number;
+}): Promise<{ creditNotes: import('../../shared/types').SalesCreditNote[]; total: number }> {
+    const conditions: string[] = [];
+    const values: (string | number)[] = [];
+
+    if (params.customerId) {
+        conditions.push('cn.customer_id = ?');
+        values.push(params.customerId);
+    }
+
+    if (params.status) {
+        conditions.push('cn.status = ?');
+        values.push(params.status);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const offset = (page - 1) * limit;
+
+    // Get total
+    const [countResult] = await query<RowDataPacket[]>(
+        `SELECT COUNT(*) as total FROM sales_credit_notes cn ${whereClause}`,
+        values
+    );
+    const total = countResult?.total || 0;
+
+    // Get credit notes
+    const rows = await query<CreditNoteRow[]>(
+        `SELECT cn.*, 
+                si.invoice_no, 
+                c.name as customer_name,
+                c.id as customer_id
+         FROM sales_credit_notes cn
+         INNER JOIN sales_invoices si ON si.id = cn.invoice_id
+         INNER JOIN customers c ON c.id = si.customer_id
+         ${whereClause}
+         ORDER BY cn.credit_date DESC, cn.id DESC
+         LIMIT ? OFFSET ?`,
+        [...values, limit, offset]
+    );
+
+    const creditNotes = rows.map(r => ({
+        id: r.id,
+        creditNoteNo: r.credit_note_no,
+        invoiceId: r.invoice_id,
+        invoiceNo: r.invoice_no,
+        customerId: r.customer_id,
+        customerName: r.customer_name,
+        creditDate: r.credit_date,
+        status: r.status as import('../../shared/types').DocumentStatus,
+        reasonCode: r.reason_code as import('../../shared/types').CreditNoteReasonCode,
+        restock: r.restock === 1,
+        subtotal: Number(r.subtotal),
+        taxTotal: Number(r.tax_total),
+        grandTotal: Number(r.grand_total),
+        memo: r.memo || undefined,
+        lines: [],
+    }));
+
+    return { creditNotes, total };
+}
+
+export async function createSalesCreditNote(
+    input: CreateCreditNoteInput,
+    userId: number
+): Promise<number> {
+    return transaction(async (connection) => {
+        // Generate credit note number
+        const creditNoteNo = await getNextNumber(connection, SequenceKeys.CREDIT_NOTE);
+
+        // Get invoice info
+        const invoiceRows = await queryTx<SalesInvoiceRow[]>(
+            connection,
+            `SELECT si.*, c.name as customer_name 
+             FROM sales_invoices si 
+             INNER JOIN customers c ON c.id = si.customer_id 
+             WHERE si.id = ?`,
+            [input.invoiceId]
+        );
+
+        if (invoiceRows.length === 0) {
+            throw new SalesError(ErrorCodes.RESOURCE_NOT_FOUND, 'Invoice not found', 404);
+        }
+
+        const _invoice = invoiceRows[0];
+
+        // Get tax rates for lines
+        const taxRates = new Map<string, number>();
+        for (const line of input.lines) {
+            if (!taxRates.has(line.taxCode)) {
+                const taxInfo = await getTaxAccounts(connection, line.taxCode);
+                taxRates.set(line.taxCode, taxInfo.rate);
+            }
+        }
+
+        // Calculate totals
+        let subtotal = 0;
+        let taxTotal = 0;
+        const processedLines: {
+            lineNo: number;
+            itemId: number;
+            qty: number;
+            unitPrice: number;
+            taxCode: string;
+            taxRate: number;
+            lineSubtotal: number;
+            lineTax: number;
+            lineTotal: number;
+            memo?: string;
+        }[] = [];
+
+        for (let i = 0; i < input.lines.length; i++) {
+            const line = input.lines[i];
+            const taxRate = taxRates.get(line.taxCode) || 0;
+
+            const lineSubtotal = line.qty * line.unitPrice;
+            const lineTax = lineSubtotal * taxRate;
+            const lineTotal = lineSubtotal + lineTax;
+
+            subtotal += lineSubtotal;
+            taxTotal += lineTax;
+
+            processedLines.push({
+                lineNo: i + 1,
+                itemId: line.itemId,
+                qty: line.qty,
+                unitPrice: line.unitPrice,
+                taxCode: line.taxCode,
+                taxRate,
+                lineSubtotal,
+                lineTax,
+                lineTotal,
+                memo: line.memo,
+            });
+        }
+
+        const grandTotal = subtotal + taxTotal;
+
+        // Insert credit note header
+        const result = await executeTx(
+            connection,
+            `INSERT INTO sales_credit_notes 
+             (credit_note_no, invoice_id, credit_date, status, reason_code, restock, 
+              subtotal, tax_total, grand_total, memo, created_by)
+             VALUES (?, ?, ?, 'DRAFT', ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                creditNoteNo,
+                input.invoiceId,
+                input.creditDate,
+                input.reasonCode,
+                input.restock ? 1 : 0,
+                subtotal,
+                taxTotal,
+                grandTotal,
+                input.memo || null,
+                userId,
+            ]
+        );
+
+        const creditNoteId = result.insertId;
+
+        // Insert lines
+        for (const line of processedLines) {
+            await executeTx(
+                connection,
+                `INSERT INTO sales_credit_note_lines 
+                 (credit_note_id, line_no, item_id, qty, unit_price, tax_code, tax_rate, 
+                  line_subtotal, line_tax, line_total, memo)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    creditNoteId,
+                    line.lineNo,
+                    line.itemId,
+                    line.qty,
+                    line.unitPrice,
+                    line.taxCode,
+                    line.taxRate,
+                    line.lineSubtotal,
+                    line.lineTax,
+                    line.lineTotal,
+                    line.memo || null,
+                ]
+            );
+        }
+
+        // Audit log
+        await createAuditLogTx(connection, {
+            actorUserId: userId,
+            action: 'CREATE',
+            entityType: 'SALES_CREDIT_NOTE',
+            entityId: creditNoteId,
+            afterData: { creditNoteNo, invoiceId: input.invoiceId, grandTotal },
+        });
+
+        return creditNoteId;
+    });
+}
+
+export async function postSalesCreditNote(
+    creditNoteId: number,
+    userId: number,
+    idempotencyKey: string
+): Promise<void> {
+    return transaction(async (connection) => {
+        // Check idempotency
+        const existingKey = await queryTx<RowDataPacket[]>(
+            connection,
+            'SELECT id FROM idempotency_keys WHERE key_value = ?',
+            [idempotencyKey]
+        );
+
+        if (existingKey.length > 0) {
+            return;
+        }
+
+        // Lock and get credit note
+        const cnRows = await queryTx<CreditNoteRow[]>(
+            connection,
+            `SELECT cn.*, si.invoice_no, c.name as customer_name, si.customer_id
+             FROM sales_credit_notes cn
+             INNER JOIN sales_invoices si ON si.id = cn.invoice_id
+             INNER JOIN customers c ON c.id = si.customer_id
+             WHERE cn.id = ? FOR UPDATE`,
+            [creditNoteId]
+        );
+
+        if (cnRows.length === 0) {
+            throw new SalesError(ErrorCodes.RESOURCE_NOT_FOUND, 'Credit note not found', 404);
+        }
+
+        const cn = cnRows[0];
+
+        if (cn.status !== 'DRAFT') {
+            throw new SalesError(ErrorCodes.CONFLICT, 'Credit note is not in draft status', 409);
+        }
+
+        // Get lines
+        const lines = await queryTx<RowDataPacket[]>(
+            connection,
+            `SELECT cnl.*, i.avg_cost, i.track_inventory
+             FROM sales_credit_note_lines cnl
+             INNER JOIN items i ON i.id = cnl.item_id
+             WHERE cnl.credit_note_id = ?`,
+            [creditNoteId]
+        );
+
+        // Get default accounts
+        const arAccountId = await getDefaultAccountId(connection, DefaultAccountKeys.AR_TRADE);
+        const salesAccountId = await getDefaultAccountId(connection, DefaultAccountKeys.SALES_INCOME);
+        const inventoryAccountId = await getDefaultAccountId(connection, DefaultAccountKeys.INVENTORY_ASSET);
+
+        // Process restock if needed
+        let totalRestockValue = 0;
+        if (cn.restock === 1) {
+            for (const line of lines) {
+                if (line.track_inventory) {
+                    const qty = Number(line.qty);
+                    const avgCost = Number(line.avg_cost);
+                    totalRestockValue += qty * avgCost;
+
+                    // Add back to stock
+                    await updateStock(connection, {
+                        itemId: line.item_id,
+                        qtyDelta: qty,
+                        unitCost: avgCost,
+                        sourceType: SourceType.CREDIT_NOTE,
+                        sourceId: creditNoteId,
+                        sourceLineId: line.id,
+                        memo: `Return from CN ${cn.credit_note_no}`,
+                    }, false);
+                }
+            }
+        }
+
+        // Create journal entries (reverse of invoice)
+        const journalLines: JournalLineInput[] = [];
+
+        // DR: Sales (reverse income)
+        journalLines.push({
+            accountId: salesAccountId,
+            dc: 'D',
+            amount: Number(cn.subtotal),
+            memo: 'Sales Return',
+        });
+
+        // CR: AR (reduce receivable)
+        journalLines.push({
+            accountId: arAccountId,
+            dc: 'C',
+            amount: Number(cn.grand_total),
+            memo: `Credit Note - ${cn.customer_name}`,
+            entityType: 'CUSTOMER',
+            entityId: cn.customer_id,
+        });
+
+        // Handle tax reversal
+        if (Number(cn.tax_total) > 0) {
+            const taxByCode = new Map<string, number>();
+            for (const line of lines) {
+                const current = taxByCode.get(line.tax_code) || 0;
+                taxByCode.set(line.tax_code, current + Number(line.line_tax));
+            }
+
+            for (const [taxCode, taxAmount] of taxByCode) {
+                const taxInfo = await getTaxAccounts(connection, taxCode);
+                if (taxInfo.outputAccountId && taxAmount > 0) {
+                    journalLines.push({
+                        accountId: taxInfo.outputAccountId,
+                        dc: 'D',
+                        amount: taxAmount,
+                        memo: `Tax Reversal - ${taxCode}`,
+                    });
+                }
+            }
+        }
+
+        // If restocking, DR Inventory, CR COGS (reverse)
+        if (totalRestockValue > 0) {
+            journalLines.push({
+                accountId: inventoryAccountId,
+                dc: 'D',
+                amount: totalRestockValue,
+                memo: 'Inventory Return',
+            });
+
+            const cogsAccountId = await getDefaultAccountId(connection, DefaultAccountKeys.COGS);
+            journalLines.push({
+                accountId: cogsAccountId,
+                dc: 'C',
+                amount: totalRestockValue,
+                memo: 'COGS Reversal',
+            });
+        }
+
+        await createJournalEntry(connection, {
+            entryDate: cn.credit_date,
+            sourceType: SourceType.CREDIT_NOTE,
+            sourceId: creditNoteId,
+            memo: `Credit Note ${cn.credit_note_no} - ${cn.customer_name}`,
+            lines: journalLines,
+            postedBy: userId,
+        });
+
+        // Update credit note status
+        await executeTx(
+            connection,
+            `UPDATE sales_credit_notes SET status = 'POSTED', posted_at = NOW(), posted_by = ? WHERE id = ?`,
+            [userId, creditNoteId]
+        );
+
+        // Update customer balance
+        await executeTx(
+            connection,
+            'UPDATE customers SET current_balance = current_balance - ? WHERE id = ?',
+            [cn.grand_total, cn.customer_id]
+        );
+
+        // Store idempotency key
+        await executeTx(
+            connection,
+            `INSERT INTO idempotency_keys (key_value, entity_type, entity_id, expires_at)
+             VALUES (?, 'SALES_CREDIT_NOTE', ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))`,
+            [idempotencyKey, creditNoteId]
+        );
+
+        // Audit log
+        await createAuditLogTx(connection, {
+            actorUserId: userId,
+            action: 'POST',
+            entityType: 'SALES_CREDIT_NOTE',
+            entityId: creditNoteId,
+            afterData: { status: 'POSTED', grandTotal: Number(cn.grand_total) },
+        });
     });
 }

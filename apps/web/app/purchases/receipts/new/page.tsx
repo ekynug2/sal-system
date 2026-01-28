@@ -1,0 +1,585 @@
+'use client';
+
+// =============================================================================
+// SAL Accounting System - Create Purchase Receipt Page
+// =============================================================================
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/ui/providers/auth-provider';
+import { Sidebar } from '@/ui/components/sidebar';
+import { useSuppliers, useItems } from '@/hooks/use-master-data';
+import { apiPost, formatCurrency } from '@/lib/api-client';
+import {
+    ArrowLeft,
+    Plus,
+    Trash2,
+    Save,
+    Loader2,
+    Search,
+    Package,
+} from 'lucide-react';
+import type { Item, Supplier } from '@/shared/types';
+
+interface ReceiptLine {
+    id: string;
+    itemId: number;
+    itemSku: string;
+    itemName: string;
+    qty: number;
+    unitCost: number;
+    taxCode: string;
+    taxRate: number;
+    lineValue: number;
+    lineTax: number;
+    memo: string;
+}
+
+const TAX_CODES = [
+    { code: 'PPN11', label: 'PPN 11%', rate: 0.11 },
+    { code: 'PPN0', label: 'PPN 0%', rate: 0 },
+    { code: 'EXEMPT', label: 'Exempt', rate: 0 },
+];
+
+function generateId(): string {
+    return Math.random().toString(36).substring(2, 9);
+}
+
+function useCreateReceipt() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (input: {
+            supplierId: number;
+            receiptDate: string;
+            referenceNo?: string;
+            memo?: string;
+            lines: { itemId: number; qty: number; unitCost: number; taxCode: string; memo?: string }[];
+        }) => apiPost<{ id: number }>('/purchases/receipts', input),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['purchases', 'receipts'] });
+        },
+    });
+}
+
+export default function CreatePurchaseReceiptPage() {
+    const router = useRouter();
+    const { user, isLoading: authLoading } = useAuth();
+    const createReceipt = useCreateReceipt();
+
+    // State
+    const [supplierId, setSupplierId] = useState<number | null>(null);
+    const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split('T')[0]);
+    const [referenceNo, setReferenceNo] = useState('');
+    const [memo, setMemo] = useState('');
+    const [lines, setLines] = useState<ReceiptLine[]>([]);
+    const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+    const [supplierSearch, setSupplierSearch] = useState('');
+    const [showItemDropdown, setShowItemDropdown] = useState<string | null>(null);
+    const [itemSearch, setItemSearch] = useState('');
+
+    // Fetch suppliers
+    const { data: suppliersData, isLoading: suppliersLoading } = useSuppliers({ limit: 100 });
+    const suppliers = suppliersData?.data || [];
+
+    // Fetch items
+    const { data: itemsData, isLoading: itemsLoading } = useItems({ limit: 500 });
+    const items = itemsData?.data || [];
+
+    const selectedSupplier = suppliers.find(s => s.id === supplierId);
+
+    if (authLoading) return null;
+
+    if (!user) {
+        router.push('/login');
+        return null;
+    }
+
+    function selectSupplier(supplier: Supplier) {
+        setSupplierId(supplier.id);
+        setShowSupplierDropdown(false);
+        setSupplierSearch('');
+    }
+
+    function addLine() {
+        setLines([
+            ...lines,
+            {
+                id: generateId(),
+                itemId: 0,
+                itemSku: '',
+                itemName: '',
+                qty: 1,
+                unitCost: 0,
+                taxCode: 'PPN11',
+                taxRate: 0.11,
+                lineValue: 0,
+                lineTax: 0,
+                memo: '',
+            },
+        ]);
+    }
+
+    function selectItem(lineId: string, item: Item) {
+        setLines(lines.map(l => {
+            if (l.id === lineId) {
+                const unitCost = item.lastCost || item.avgCost || 0;
+                const lineValue = 1 * unitCost;
+                const lineTax = lineValue * l.taxRate;
+                return {
+                    ...l,
+                    itemId: item.id,
+                    itemSku: item.sku,
+                    itemName: item.name,
+                    unitCost,
+                    lineValue,
+                    lineTax,
+                };
+            }
+            return l;
+        }));
+        setShowItemDropdown(null);
+        setItemSearch('');
+    }
+
+    function updateLine(lineId: string, updates: Partial<ReceiptLine>) {
+        setLines(lines.map(l => {
+            if (l.id === lineId) {
+                const updated = { ...l, ...updates };
+                // Recalculate
+                const taxRate = TAX_CODES.find(t => t.code === updated.taxCode)?.rate || 0;
+                updated.taxRate = taxRate;
+                updated.lineValue = updated.qty * updated.unitCost;
+                updated.lineTax = updated.lineValue * taxRate;
+                return updated;
+            }
+            return l;
+        }));
+    }
+
+    function removeLine(lineId: string) {
+        setLines(lines.filter(l => l.id !== lineId));
+    }
+
+    // Calculate totals
+    const subtotal = lines.reduce((sum, l) => sum + l.lineValue, 0);
+    const taxTotal = lines.reduce((sum, l) => sum + l.lineTax, 0);
+    const grandTotal = subtotal + taxTotal;
+
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+
+        if (!supplierId) {
+            alert('Please select a supplier');
+            return;
+        }
+
+        const validLines = lines.filter(l => l.itemId && l.qty > 0);
+        if (validLines.length === 0) {
+            alert('Please add at least one item');
+            return;
+        }
+
+        try {
+            const result = await createReceipt.mutateAsync({
+                supplierId,
+                receiptDate,
+                referenceNo: referenceNo || undefined,
+                memo: memo || undefined,
+                lines: validLines.map(l => ({
+                    itemId: l.itemId,
+                    qty: l.qty,
+                    unitCost: l.unitCost,
+                    taxCode: l.taxCode,
+                    memo: l.memo || undefined,
+                })),
+            });
+
+            router.push(`/purchases/receipts/${result.id}`);
+        } catch (err) {
+            alert(`Failed to create receipt: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        }
+    }
+
+    const filteredSuppliers = suppliers.filter((s: Supplier) =>
+        s.name.toLowerCase().includes(supplierSearch.toLowerCase())
+    );
+
+    const filteredItems = items.filter((i: Item) =>
+        i.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
+        i.sku.toLowerCase().includes(itemSearch.toLowerCase())
+    );
+
+    return (
+        <div className="app-layout">
+            <Sidebar />
+            <main className="main-content">
+                <form onSubmit={handleSubmit}>
+                    {/* Header */}
+                    <div className="page-header">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+                            <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => router.push('/purchases/receipts')}
+                                style={{ padding: 'var(--space-2)' }}
+                            >
+                                <ArrowLeft size={20} />
+                            </button>
+                            <div>
+                                <h1 className="page-title">
+                                    <Package size={28} style={{ marginRight: 'var(--space-2)', verticalAlign: 'middle' }} />
+                                    New Purchase Receipt
+                                </h1>
+                                <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
+                                    Record received goods from supplier
+                                </p>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => router.push('/purchases/receipts')}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                className="btn btn-primary"
+                                disabled={createReceipt.isPending}
+                            >
+                                {createReceipt.isPending ? (
+                                    <Loader2 className="animate-spin" size={18} />
+                                ) : (
+                                    <Save size={18} />
+                                )}
+                                Save Receipt
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Header Details */}
+                    <div className="card" style={{ marginBottom: 'var(--space-6)', padding: 'var(--space-5)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
+                            {/* Supplier Selection */}
+                            <div style={{ position: 'relative', gridColumn: 'span 2' }}>
+                                <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
+                                    Supplier *
+                                </label>
+                                <div style={{ position: 'relative' }}>
+                                    <Search
+                                        size={18}
+                                        style={{
+                                            position: 'absolute',
+                                            left: 12,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            color: 'var(--text-muted)',
+                                        }}
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Search supplier..."
+                                        value={showSupplierDropdown ? supplierSearch : (selectedSupplier?.name || '')}
+                                        onChange={(e) => {
+                                            setSupplierSearch(e.target.value);
+                                            setShowSupplierDropdown(true);
+                                        }}
+                                        onFocus={() => setShowSupplierDropdown(true)}
+                                        style={{ paddingLeft: 42 }}
+                                        autoComplete="off"
+                                    />
+                                    {showSupplierDropdown && (
+                                        <div
+                                            style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                background: 'var(--bg-primary)',
+                                                border: '1px solid var(--border-color)',
+                                                borderRadius: 'var(--radius-md)',
+                                                boxShadow: 'var(--shadow-lg)',
+                                                zIndex: 100,
+                                                maxHeight: 300,
+                                                overflowY: 'auto',
+                                            }}
+                                        >
+                                            {suppliersLoading ? (
+                                                <div style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Loading...</div>
+                                            ) : filteredSuppliers.length === 0 ? (
+                                                <div style={{ padding: 'var(--space-3)', color: 'var(--text-muted)', textAlign: 'center' }}>
+                                                    No suppliers found
+                                                </div>
+                                            ) : (
+                                                filteredSuppliers.map(s => (
+                                                    <div
+                                                        key={s.id}
+                                                        onClick={() => selectSupplier(s)}
+                                                        style={{
+                                                            padding: 'var(--space-2) var(--space-3)',
+                                                            cursor: 'pointer',
+                                                            borderBottom: '1px solid var(--border-color)',
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                                    >
+                                                        <div style={{ fontWeight: 500 }}>{s.name}</div>
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                            {s.phone || 'No phone'}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
+                                    Receipt Date *
+                                </label>
+                                <input
+                                    type="date"
+                                    value={receiptDate}
+                                    onChange={(e) => setReceiptDate(e.target.value)}
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
+                                    Reference No
+                                </label>
+                                <input
+                                    type="text"
+                                    value={referenceNo}
+                                    onChange={(e) => setReferenceNo(e.target.value)}
+                                    placeholder="Delivery note, etc..."
+                                />
+                            </div>
+
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
+                                    Memo
+                                </label>
+                                <input
+                                    type="text"
+                                    value={memo}
+                                    onChange={(e) => setMemo(e.target.value)}
+                                    placeholder="Internal notes..."
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Line Items */}
+                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                        <div style={{
+                            padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                        }}>
+                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>
+                                Receipt Lines
+                            </h3>
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={addLine}
+                            >
+                                <Plus size={18} />
+                                Add Item
+                            </button>
+                        </div>
+
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ minWidth: 800 }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: 250 }}>Item</th>
+                                        <th style={{ width: 80, textAlign: 'right' }}>Qty</th>
+                                        <th style={{ width: 120, textAlign: 'right' }}>Unit Cost</th>
+                                        <th style={{ width: 100 }}>Tax</th>
+                                        <th style={{ width: 120, textAlign: 'right' }}>Subtotal</th>
+                                        <th style={{ width: 100, textAlign: 'right' }}>Tax Amt</th>
+                                        <th style={{ width: 150 }}>Memo</th>
+                                        <th style={{ width: 50 }}></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {lines.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={8} style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--text-muted)' }}>
+                                                No items added. Click &ldquo;Add Item&rdquo; to start.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        lines.map((line) => (
+                                            <tr key={line.id} style={{ verticalAlign: 'top' }}>
+                                                <td style={{ position: 'relative' }}>
+                                                    {line.itemId ? (
+                                                        <div>
+                                                            <div style={{ fontWeight: 500 }}>{line.itemName}</div>
+                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{line.itemSku}</div>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ position: 'relative' }}>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Search item..."
+                                                                value={showItemDropdown === line.id ? itemSearch : ''}
+                                                                onChange={(e) => {
+                                                                    setItemSearch(e.target.value);
+                                                                    setShowItemDropdown(line.id);
+                                                                }}
+                                                                onFocus={() => setShowItemDropdown(line.id)}
+                                                            />
+                                                            {showItemDropdown === line.id && (
+                                                                <div
+                                                                    style={{
+                                                                        position: 'absolute',
+                                                                        top: '100%',
+                                                                        left: 0,
+                                                                        right: 0,
+                                                                        background: 'var(--bg-primary)',
+                                                                        border: '1px solid var(--border-color)',
+                                                                        borderRadius: 'var(--radius-md)',
+                                                                        boxShadow: 'var(--shadow-lg)',
+                                                                        zIndex: 100,
+                                                                        maxHeight: 200,
+                                                                        overflowY: 'auto',
+                                                                    }}
+                                                                >
+                                                                    {itemsLoading ? (
+                                                                        <div style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Loading...</div>
+                                                                    ) : filteredItems.length === 0 ? (
+                                                                        <div style={{ padding: 'var(--space-3)', color: 'var(--text-muted)', textAlign: 'center' }}>
+                                                                            No items found
+                                                                        </div>
+                                                                    ) : (
+                                                                        filteredItems.slice(0, 10).map(item => (
+                                                                            <div
+                                                                                key={item.id}
+                                                                                onClick={() => selectItem(line.id, item)}
+                                                                                style={{
+                                                                                    padding: 'var(--space-2) var(--space-3)',
+                                                                                    cursor: 'pointer',
+                                                                                    borderBottom: '1px solid var(--border-color)',
+                                                                                }}
+                                                                                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                                                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                                                            >
+                                                                                <div style={{ fontWeight: 500 }}>{item.name}</div>
+                                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                                                    {item.sku} • {formatCurrency(item.lastCost || item.avgCost || 0)}
+                                                                                </div>
+                                                                            </div>
+                                                                        ))
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        value={line.qty}
+                                                        onChange={(e) => updateLine(line.id, { qty: Number(e.target.value) })}
+                                                        style={{ textAlign: 'right', width: 70 }}
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={line.unitCost}
+                                                        onChange={(e) => updateLine(line.id, { unitCost: Number(e.target.value) })}
+                                                        style={{ textAlign: 'right', width: 100 }}
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <select
+                                                        value={line.taxCode}
+                                                        onChange={(e) => updateLine(line.id, { taxCode: e.target.value })}
+                                                        style={{ width: 90 }}
+                                                    >
+                                                        {TAX_CODES.map(t => (
+                                                            <option key={t.code} value={t.code}>{t.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </td>
+                                                <td className="money" style={{ textAlign: 'right' }}>{formatCurrency(line.lineValue)}</td>
+                                                <td className="money" style={{ textAlign: 'right' }}>{formatCurrency(line.lineTax)}</td>
+                                                <td>
+                                                    <input
+                                                        type="text"
+                                                        value={line.memo}
+                                                        onChange={(e) => updateLine(line.id, { memo: e.target.value })}
+                                                        placeholder="..."
+                                                        style={{ width: 120 }}
+                                                    />
+                                                </td>
+                                                <td>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-ghost"
+                                                        onClick={() => removeLine(line.id)}
+                                                        style={{ padding: 'var(--space-2)', color: 'var(--accent-red)' }}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                                {lines.length > 0 && (
+                                    <tfoot>
+                                        <tr>
+                                            <td colSpan={4} style={{ textAlign: 'right', fontWeight: 500 }}>Subtotal</td>
+                                            <td className="money" style={{ textAlign: 'right' }}>{formatCurrency(subtotal)}</td>
+                                            <td></td>
+                                            <td></td>
+                                            <td></td>
+                                        </tr>
+                                        <tr>
+                                            <td colSpan={4} style={{ textAlign: 'right', fontWeight: 500 }}>Tax</td>
+                                            <td className="money" style={{ textAlign: 'right' }}>{formatCurrency(taxTotal)}</td>
+                                            <td></td>
+                                            <td></td>
+                                            <td></td>
+                                        </tr>
+                                        <tr style={{ background: 'var(--bg-secondary)' }}>
+                                            <td colSpan={4} style={{ textAlign: 'right', fontWeight: 700, fontSize: '1.1rem' }}>Total</td>
+                                            <td colSpan={3} className="money" style={{ textAlign: 'right', fontWeight: 700, fontSize: '1.1rem', color: 'var(--primary-600)' }}>
+                                                {formatCurrency(grandTotal)}
+                                            </td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                )}
+                            </table>
+                        </div>
+                    </div>
+                </form>
+            </main>
+
+            {/* Click outside to close dropdowns */}
+            {(showSupplierDropdown || showItemDropdown) && (
+                <div
+                    style={{ position: 'fixed', inset: 0, zIndex: 50 }}
+                    onClick={() => {
+                        setShowSupplierDropdown(false);
+                        setShowItemDropdown(null);
+                    }}
+                />
+            )}
+        </div>
+    );
+}

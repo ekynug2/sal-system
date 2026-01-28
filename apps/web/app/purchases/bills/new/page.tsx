@@ -46,8 +46,8 @@ export default function CreateBillPage() {
     const { data: itemsData } = useItems({ sellableOnly: false });
     const { data: suppliersData } = useSuppliers();
 
-    const items = itemsData || [];
-    const suppliers = suppliersData || [];
+    const items = itemsData?.data || [];
+    const suppliers = suppliersData?.data || [];
 
     // State
     const [supplierId, setSupplierId] = useState<number | null>(null);

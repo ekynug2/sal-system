@@ -6,7 +6,7 @@
 
 import type { ApiResponse } from '@/shared/types';
 
-const API_BASE = '/api/v1';
+const API_BASE = '/api';
 
 export class ApiError extends Error {
     constructor(

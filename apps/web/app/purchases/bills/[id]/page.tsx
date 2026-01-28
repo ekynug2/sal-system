@@ -63,8 +63,8 @@ export default function PurchaseBillDetailPage({ params }: { params: Promise<{ i
                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                                 <h1 className="page-title">{bill.billNo}</h1>
                                 <span className={`badge ${bill.status === 'POSTED' ? 'badge-green' :
-                                        bill.status === 'PAID' ? 'badge-blue' :
-                                            bill.status === 'DRAFT' ? 'badge-gray' : 'badge-red'
+                                    bill.status === 'PAID' ? 'badge-blue' :
+                                        bill.status === 'DRAFT' ? 'badge-gray' : 'badge-red'
                                     }`}>
                                     {bill.status}
                                 </span>
@@ -192,7 +192,7 @@ function LoadingScreen() {
     );
 }
 
-function ErrorScreen({ router }: { router: any }) {
+function ErrorScreen({ router }: { router: { push: (url: string) => void } }) {
     return (
         <div className="app-layout">
             <Sidebar />

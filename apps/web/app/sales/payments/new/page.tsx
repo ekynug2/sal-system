@@ -208,7 +208,7 @@ export default function ReceivePaymentPage() {
                                     style={{ width: '100%' }}
                                 >
                                     <option value="">Select customer...</option>
-                                    {customersData?.map(c => (
+                                    {customersData?.data?.map(c => (
                                         <option key={c.id} value={c.id}>
                                             [{c.customerCode}] {c.name}
                                         </option>
