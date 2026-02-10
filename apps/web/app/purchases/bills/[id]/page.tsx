@@ -38,12 +38,12 @@ export default function PurchaseBillDetailPage({ params }: { params: Promise<{ i
     if (error || !bill) return <ErrorScreen router={router} />;
 
     async function handlePost() {
-        if (!confirm('Are you sure you want to POST this bill? Inventory will be updated and AP recorded.')) return;
+        if (!confirm('Apakah Anda yakin ingin memposting tagihan ini? Persediaan akan diperbarui dan hutang usaha akan dicatat.')) return;
         try {
             await postBill.mutateAsync(id);
-            alert('Bill posted successfully');
+            alert('Tagihan berhasil diposting');
         } catch (err) {
-            alert(`Failed to post: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            alert(`Gagal memposting: ${err instanceof Error ? err.message : 'Kesalahan tidak diketahui'}`);
         }
     }
 
@@ -70,7 +70,7 @@ export default function PurchaseBillDetailPage({ params }: { params: Promise<{ i
                                 </span>
                             </div>
                             <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                                Purchase Bill from {bill.supplierName}
+                                Tagihan Pembelian dari {bill.supplierName}
                             </p>
                         </div>
                     </div>
@@ -82,7 +82,7 @@ export default function PurchaseBillDetailPage({ params }: { params: Promise<{ i
                                 disabled={postBill.isPending}
                             >
                                 {postBill.isPending ? <Loader2 className="animate-spin" size={18} /> : <ShieldCheck size={18} />}
-                                Post Bill
+                                Posting Tagihan
                             </button>
                         )}
                         {/* Add Payment Button if Posted/Partially Paid? Later feature. */}
@@ -95,15 +95,15 @@ export default function PurchaseBillDetailPage({ params }: { params: Promise<{ i
                         {/* Items */}
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                             <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)' }}>
-                                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Items ({bill.lines.length})</h3>
+                                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Barang ({bill.lines.length})</h3>
                             </div>
                             <table className="compact-table">
                                 <thead>
                                     <tr>
-                                        <th>Item</th>
-                                        <th style={{ textAlign: 'right' }}>Qty</th>
-                                        <th style={{ textAlign: 'right' }}>Cost</th>
-                                        <th style={{ textAlign: 'right' }}>Tax</th>
+                                        <th>Barang</th>
+                                        <th style={{ textAlign: 'right' }}>Jml</th>
+                                        <th style={{ textAlign: 'right' }}>Biaya</th>
+                                        <th style={{ textAlign: 'right' }}>Pajak</th>
                                         <th style={{ textAlign: 'right' }}>Total</th>
                                     </tr>
                                 </thead>
@@ -133,11 +133,11 @@ export default function PurchaseBillDetailPage({ params }: { params: Promise<{ i
                                         <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(bill.subtotal)}</td>
                                     </tr>
                                     <tr>
-                                        <td colSpan={4} style={{ textAlign: 'right', paddingRight: 'var(--space-4)' }}>Tax Total</td>
+                                        <td colSpan={4} style={{ textAlign: 'right', paddingRight: 'var(--space-4)' }}>Total Pajak</td>
                                         <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(bill.taxTotal)}</td>
                                     </tr>
                                     <tr style={{ background: 'var(--primary-50)', fontSize: '1.1rem' }}>
-                                        <td colSpan={4} style={{ textAlign: 'right', paddingRight: 'var(--space-4)', fontWeight: 700 }}>Grand Total</td>
+                                        <td colSpan={4} style={{ textAlign: 'right', paddingRight: 'var(--space-4)', fontWeight: 700 }}>Total Akhir</td>
                                         <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--primary-600)' }}>{formatCurrency(bill.grandTotal)}</td>
                                     </tr>
                                 </tfoot>
@@ -147,21 +147,21 @@ export default function PurchaseBillDetailPage({ params }: { params: Promise<{ i
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                         <div className="card" style={{ padding: 'var(--space-4)' }}>
-                            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-4)' }}>Information</h3>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-4)' }}>Informasi</h3>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                                <InfoRow icon={<Truck size={16} />} label="Supplier" value={bill.supplierName} />
+                                <InfoRow icon={<Truck size={16} />} label="Pemasok" value={bill.supplierName} />
                                 {bill.supplierInvoiceNo && (
-                                    <InfoRow icon={<FileText size={16} />} label="Supplier Ref" value={bill.supplierInvoiceNo} />
+                                    <InfoRow icon={<FileText size={16} />} label="Ref. Pemasok" value={bill.supplierInvoiceNo} />
                                 )}
-                                <InfoRow icon={<Calendar size={16} />} label="Bill Date" value={formatDate(bill.billDate)} />
-                                <InfoRow icon={<Calendar size={16} />} label="Due Date" value={formatDate(bill.dueDate)} />
+                                <InfoRow icon={<Calendar size={16} />} label="Tanggal Tagihan" value={formatDate(bill.billDate)} />
+                                <InfoRow icon={<Calendar size={16} />} label="Jatuh Tempo" value={formatDate(bill.dueDate)} />
 
                                 {isPosted && (
                                     <div style={{ marginTop: 'var(--space-2)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--border-color)' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--accent-green)' }}>
                                             <CheckCircle size={16} />
-                                            <span style={{ fontWeight: 500 }}>Bill Posted</span>
+                                            <span style={{ fontWeight: 500 }}>Tagihan Diposting</span>
                                         </div>
                                     </div>
                                 )}
@@ -199,8 +199,8 @@ function ErrorScreen({ router }: { router: { push: (url: string) => void } }) {
             <main className="main-content center-content">
                 <div className="card text-center p-8">
                     <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
-                    <h2>Bill Not Found</h2>
-                    <button className="btn btn-secondary mt-4" onClick={() => router.push('/purchases/bills')}>Back to List</button>
+                    <h2>Tagihan Tidak Ditemukan</h2>
+                    <button className="btn btn-secondary mt-4" onClick={() => router.push('/purchases/bills')}>Kembali ke Daftar</button>
                 </div>
             </main>
         </div>

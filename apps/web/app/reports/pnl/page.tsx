@@ -25,15 +25,15 @@ export default function ProfitLossPage() {
             <Sidebar />
             <main className="main-content">
                 <div className="page-header print:hidden">
-                    <h1 className="page-title">Profit & Loss Statement</h1>
+                    <h1 className="page-title">Laporan Laba Rugi</h1>
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <button className="btn btn-secondary" onClick={() => refetch()} disabled={isFetching}>
                             <RefreshCw size={16} className={isFetching ? 'animate-spin' : ''} />
-                            Refresh
+                            Segarkan
                         </button>
                         <button className="btn btn-secondary" onClick={handlePrint}>
                             <Download size={16} />
-                            Print
+                            Cetak
                         </button>
                     </div>
                 </div>
@@ -41,7 +41,7 @@ export default function ProfitLossPage() {
                 {/* Filters */}
                 <div className="card_p4 mb-6 print:hidden" style={{ padding: '16px', display: 'flex', gap: '16px', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <label className="text-sm font-medium">From:</label>
+                        <label className="text-sm font-medium">Dari:</label>
                         <input
                             type="date"
                             value={from}
@@ -50,7 +50,7 @@ export default function ProfitLossPage() {
                         />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <label className="text-sm font-medium">To:</label>
+                        <label className="text-sm font-medium">Sampai:</label>
                         <input
                             type="date"
                             value={to}
@@ -64,7 +64,7 @@ export default function ProfitLossPage() {
                 <div className="card_p4 print:shadow-none print:border-none" style={{ padding: '32px', minHeight: '500px' }}>
 
                     <div className="text-center mb-8">
-                        <h2 className="text-2xl font-bold">PROFIT & LOSS</h2>
+                        <h2 className="text-2xl font-bold">LABA & RUGI</h2>
                         <p className="text-gray-500">
                             {formatDate(from)} - {formatDate(to)}
                         </p>
@@ -73,12 +73,12 @@ export default function ProfitLossPage() {
                     {isLoading ? (
                         <div className="flex justify-center p-12"><Loader2 className="animate-spin" size={32} /></div>
                     ) : !report ? (
-                        <div className="text-center p-12 text-gray-500">No data available</div>
+                        <div className="text-center p-12 text-gray-500">Tidak ada data tersedia</div>
                     ) : (
                         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
                             {/* Income */}
                             <div className="mb-6">
-                                <h3 className="section-title">Income</h3>
+                                <h3 className="section-title">Pendapatan</h3>
                                 <div className="report-table">
                                     {report.income.map(item => (
                                         <div key={item.accountCode} className="report-row">
@@ -87,7 +87,7 @@ export default function ProfitLossPage() {
                                         </div>
                                     ))}
                                     <div className="report-row total">
-                                        <span>Total Income</span>
+                                        <span>Total Pendapatan</span>
                                         <span>{formatCurrency(report.totalIncome)}</span>
                                     </div>
                                 </div>
@@ -95,7 +95,7 @@ export default function ProfitLossPage() {
 
                             {/* Cost of Goods Sold */}
                             <div className="mb-6">
-                                <h3 className="section-title">Cost of Goods Sold</h3>
+                                <h3 className="section-title">Harga Pokok Penjualan</h3>
                                 <div className="report-table">
                                     {report.cogs.map(item => (
                                         <div key={item.accountCode} className="report-row">
@@ -104,7 +104,7 @@ export default function ProfitLossPage() {
                                         </div>
                                     ))}
                                     <div className="report-row total">
-                                        <span>Total COGS</span>
+                                        <span>Total HPP</span>
                                         <span>{formatCurrency(report.totalCogs)}</span>
                                     </div>
                                 </div>
@@ -112,13 +112,13 @@ export default function ProfitLossPage() {
 
                             {/* Gross Profit */}
                             <div className="report-row grand-total mb-8">
-                                <span>Gross Profit</span>
+                                <span>Laba Kotor</span>
                                 <span>{formatCurrency(report.grossProfit)}</span>
                             </div>
 
                             {/* Expenses */}
                             <div className="mb-6">
-                                <h3 className="section-title">Expenses</h3>
+                                <h3 className="section-title">Beban</h3>
                                 <div className="report-table">
                                     {report.expenses.map(item => (
                                         <div key={item.accountCode} className="report-row">
@@ -127,7 +127,7 @@ export default function ProfitLossPage() {
                                         </div>
                                     ))}
                                     <div className="report-row total">
-                                        <span>Total Expenses</span>
+                                        <span>Total Beban</span>
                                         <span>{formatCurrency(report.totalExpenses)}</span>
                                     </div>
                                 </div>
@@ -135,7 +135,7 @@ export default function ProfitLossPage() {
 
                             {/* Net Income */}
                             <div className="report-row grand-total net-income">
-                                <span>Net Income</span>
+                                <span>Laba Bersih</span>
                                 <span>{formatCurrency(report.netIncome)}</span>
                             </div>
 

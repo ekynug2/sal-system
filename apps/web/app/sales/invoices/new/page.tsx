@@ -21,6 +21,7 @@ import {
     Search,
     Calculator,
 } from 'lucide-react';
+import { SelectCustomerModal, SelectItemModal } from '@/ui/components/select-modals';
 
 interface InvoiceLine {
     id: string;
@@ -57,8 +58,8 @@ export default function CreateInvoicePage() {
     const { data: customersData, isLoading: custLoading } = useCustomers({ activeOnly: true });
     const { data: itemsData, isLoading: itemsLoading } = useItems({ sellableOnly: true });
 
-    const customers = customersData?.data || [];
-    const items = itemsData?.data || [];
+    const customers = customersData || [];
+    const items = itemsData || [];
 
     const [customerId, setCustomerId] = useState<number | null>(null);
     const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
@@ -70,8 +71,9 @@ export default function CreateInvoicePage() {
         { id: generateId(), itemId: null, itemSku: '', itemName: '', qty: 1, unitPrice: 0, discountRate: 0, taxCode: 'PPN11', taxRate: 0.11, description: '', uomCode: '' }
     ]);
 
-    const [itemSearch, setItemSearch] = useState('');
-    const [showItemDropdown, setShowItemDropdown] = useState<string | null>(null);
+    const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+    const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+    const [activeLineId, setActiveLineId] = useState<string | null>(null);
 
     if (authLoading) {
         return (
@@ -139,8 +141,7 @@ export default function CreateInvoicePage() {
             }
             return l;
         }));
-        setShowItemDropdown(null);
-        setItemSearch('');
+
     }
 
     function calculateLineTotal(line: InvoiceLine) {
@@ -164,13 +165,13 @@ export default function CreateInvoicePage() {
         e.preventDefault();
 
         if (!customerId) {
-            alert('Please select a customer');
+            alert('Silakan pilih pelanggan');
             return;
         }
 
         const validLines = lines.filter(l => l.itemId && l.qty > 0);
         if (validLines.length === 0) {
-            alert('Please add at least one item');
+            alert('Silakan tambahkan setidaknya satu barang');
             return;
         }
 
@@ -192,15 +193,11 @@ export default function CreateInvoicePage() {
 
             router.push(`/sales/invoices/${result.id}`);
         } catch (err) {
-            alert(`Failed to create invoice: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            alert(`Gagal membuat faktur: ${err instanceof Error ? err.message : 'Kesalahan tidak diketahui'}`);
         }
     }
 
-    // Client-side filtering for dropdown
-    const filteredItems = items.filter(item =>
-        item.sku.toLowerCase().includes(itemSearch.toLowerCase()) ||
-        item.name.toLowerCase().includes(itemSearch.toLowerCase())
-    );
+
 
     const isDataLoading = custLoading || itemsLoading;
 
@@ -221,9 +218,9 @@ export default function CreateInvoicePage() {
                                 <ArrowLeft size={20} />
                             </button>
                             <div>
-                                <h1 className="page-title">New Sales Invoice</h1>
+                                <h1 className="page-title">Faktur Penjualan Baru</h1>
                                 <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                                    Create a new invoice for your customer
+                                    Buat faktur baru untuk pelanggan Anda
                                 </p>
                             </div>
                         </div>
@@ -233,7 +230,7 @@ export default function CreateInvoicePage() {
                                 className="btn btn-secondary"
                                 onClick={() => router.push('/sales/invoices')}
                             >
-                                Cancel
+                                Batal
                             </button>
                             <button
                                 type="submit"
@@ -245,7 +242,7 @@ export default function CreateInvoicePage() {
                                 ) : (
                                     <Save size={18} />
                                 )}
-                                Save Invoice
+                                Simpan Faktur
                             </button>
                         </div>
                     </div>
@@ -253,37 +250,36 @@ export default function CreateInvoicePage() {
                     {isDataLoading && (
                         <div style={{ marginBottom: 'var(--space-4)', padding: 'var(--space-3)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                             <Loader2 className="animate-spin" size={16} />
-                            <span style={{ fontSize: '0.875rem' }}>Loading master data...</span>
+                            <span style={{ fontSize: '0.875rem' }}>Memuat data master...</span>
                         </div>
                     )}
 
                     {/* Invoice Details */}
                     <div className="card" style={{ marginBottom: 'var(--space-6)', padding: 'var(--space-5)' }}>
                         <h3 style={{ margin: 0, marginBottom: 'var(--space-4)', fontSize: '1rem', fontWeight: 600 }}>
-                            Invoice Details
+                            Detail Faktur
                         </h3>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
                             <div>
                                 <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
-                                    Customer *
+                                    Pelanggan *
                                 </label>
-                                <select
-                                    value={customerId || ''}
-                                    onChange={(e) => handleCustomerChange(e.target.value ? Number(e.target.value) : 0)}
-                                    required
-                                    style={{ width: '100%', padding: 'var(--space-2)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}
-                                >
-                                    <option value="">Select customer...</option>
-                                    {customers.map(c => (
-                                        <option key={c.id} value={c.id}>
-                                            [{c.customerCode}] {c.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div style={{ position: 'relative' }}>
+                                    <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                                    <input
+                                        type="text"
+                                        placeholder="Pilih pelanggan..."
+                                        value={customers.find(c => c.id === customerId)?.name || ''}
+                                        readOnly
+                                        onClick={() => setIsCustomerModalOpen(true)}
+                                        className="input pl-9"
+                                        style={{ cursor: 'pointer', width: '100%' }}
+                                    />
+                                </div>
                             </div>
                             <div>
                                 <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
-                                    Invoice Date *
+                                    Tanggal Faktur *
                                 </label>
                                 <input
                                     type="date"
@@ -294,7 +290,7 @@ export default function CreateInvoicePage() {
                             </div>
                             <div>
                                 <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
-                                    Due Date *
+                                    Jatuh Tempo *
                                 </label>
                                 <input
                                     type="date"
@@ -307,13 +303,13 @@ export default function CreateInvoicePage() {
                     </div>
 
                     {/* Line Items */}
-                    <div className="card" style={{ marginBottom: 'var(--space-6)', padding: 0, overflow: 'hidden' }}>
+                    <div className="card" style={{ marginBottom: 'var(--space-6)', padding: 0 }}>
                         <div style={{
                             padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)',
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between'
                         }}>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>
-                                Line Items
+                                Baris Barang
                             </h3>
                             <button
                                 type="button"
@@ -322,7 +318,7 @@ export default function CreateInvoicePage() {
                                 style={{ padding: 'var(--space-2) var(--space-3)' }}
                             >
                                 <Plus size={16} />
-                                Add Line
+                                Tambah Baris
                             </button>
                         </div>
 
@@ -330,12 +326,12 @@ export default function CreateInvoicePage() {
                             <table style={{ minWidth: 900 }}>
                                 <thead>
                                     <tr>
-                                        <th style={{ width: 300 }}>Item</th>
-                                        <th style={{ width: 100, textAlign: 'right' }}>Qty</th>
-                                        <th style={{ width: 60 }}>Unit</th>
-                                        <th style={{ width: 140, textAlign: 'right' }}>Unit Price</th>
-                                        <th style={{ width: 100, textAlign: 'right' }}>Discount %</th>
-                                        <th style={{ width: 120 }}>Tax</th>
+                                        <th style={{ width: 300 }}>Barang</th>
+                                        <th style={{ width: 100, textAlign: 'right' }}>Jumlah</th>
+                                        <th style={{ width: 60 }}>Satuan</th>
+                                        <th style={{ width: 140, textAlign: 'right' }}>Harga Satuan</th>
+                                        <th style={{ width: 100, textAlign: 'right' }}>Diskon %</th>
+                                        <th style={{ width: 120 }}>Pajak</th>
                                         <th style={{ width: 140, textAlign: 'right' }}>Total</th>
                                         <th style={{ width: 50 }}></th>
                                     </tr>
@@ -352,76 +348,34 @@ export default function CreateInvoicePage() {
                                                             style={{
                                                                 position: 'absolute',
                                                                 left: 10,
-                                                                top: 12, // align top
+                                                                top: '50%',
+                                                                transform: 'translateY(-50%)',
                                                                 color: 'var(--text-muted)',
+                                                                pointerEvents: 'none',
                                                             }}
                                                         />
                                                         <input
                                                             type="text"
-                                                            placeholder="Search item..."
-                                                            value={showItemDropdown === line.id ? itemSearch : (line.itemName || '')}
-                                                            onChange={(e) => {
-                                                                setItemSearch(e.target.value);
-                                                                setShowItemDropdown(line.id);
+                                                            placeholder="Pilih barang..."
+                                                            value={line.itemName || ''}
+                                                            readOnly
+                                                            onClick={() => {
+                                                                setActiveLineId(line.id);
+                                                                setIsItemModalOpen(true);
                                                             }}
-                                                            onFocus={() => {
-                                                                setItemSearch(''); // Clear search on focus to show all/recent
-                                                                setShowItemDropdown(line.id);
+                                                            className="input pl-9"
+                                                            style={{
+                                                                cursor: 'pointer',
+                                                                paddingLeft: 36,
+                                                                border: !line.itemId ? '1px solid var(--accent-red)' : undefined
                                                             }}
-                                                            style={{ paddingLeft: 36 }}
-                                                            autoComplete="off"
                                                         />
-                                                        {showItemDropdown === line.id && (
-                                                            <div
-                                                                style={{
-                                                                    position: 'absolute',
-                                                                    top: '100%',
-                                                                    left: 0,
-                                                                    right: 0,
-                                                                    background: 'var(--bg-primary)',
-                                                                    border: '1px solid var(--border-color)',
-                                                                    borderRadius: 'var(--radius-md)',
-                                                                    boxShadow: 'var(--shadow-lg)',
-                                                                    zIndex: 100,
-                                                                    maxHeight: 250,
-                                                                    overflowY: 'auto',
-                                                                }}
-                                                            >
-                                                                {filteredItems.map(item => (
-                                                                    <div
-                                                                        key={item.id}
-                                                                        onClick={() => selectItem(line.id, item)}
-                                                                        style={{
-                                                                            padding: 'var(--space-2) var(--space-3)',
-                                                                            cursor: 'pointer',
-                                                                            borderBottom: '1px solid var(--border-color)',
-                                                                        }}
-                                                                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
-                                                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                                                    >
-                                                                        <div style={{ fontWeight: 500 }}>{item.name}</div>
-                                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-                                                                            <span>{item.sku}</span>
-                                                                            <span>Stock: {item.onHand} {item.uomCode}</span>
-                                                                        </div>
-                                                                        <div style={{ fontSize: '0.75rem', fontWeight: 500, marginTop: 2 }}>
-                                                                            {formatCurrency(item.sellingPrice)}
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                                {filteredItems.length === 0 && (
-                                                                    <div style={{ padding: 'var(--space-3)', color: 'var(--text-muted)', textAlign: 'center' }}>
-                                                                        No items found
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
                                                     </div>
                                                     {line.itemId && (
                                                         <div style={{ marginTop: 4 }}>
                                                             <input
                                                                 type="text"
-                                                                placeholder="Description (optional)"
+                                                                placeholder="Deskripsi (opsional)"
                                                                 value={line.description}
                                                                 onChange={(e) => updateLine(line.id, 'description', e.target.value)}
                                                                 style={{ fontSize: '0.85rem', padding: 'var(--space-1) var(--space-2)', height: 'auto' }}
@@ -471,7 +425,7 @@ export default function CreateInvoicePage() {
                                                         onChange={(e) => updateLine(line.id, 'taxCode', e.target.value)}
                                                         style={{ width: '100%' }}
                                                     >
-                                                        <option value="NON">No Tax</option>
+                                                        <option value="NON">Tanpa Pajak</option>
                                                         <option value="PPN11">PPN 11%</option>
                                                         <option value="PPN12">PPN 12%</option>
                                                     </select>
@@ -502,12 +456,12 @@ export default function CreateInvoicePage() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 'var(--space-6)' }}>
                         <div className="card" style={{ padding: 'var(--space-4)' }}>
                             <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
-                                Notes / Memo
+                                Catatan / Memo
                             </label>
                             <textarea
                                 value={memo}
                                 onChange={(e) => setMemo(e.target.value)}
-                                placeholder="Add any notes for this invoice..."
+                                placeholder="Tambahkan catatan untuk faktur ini..."
                                 rows={4}
                                 style={{ resize: 'vertical', width: '100%' }}
                             />
@@ -516,7 +470,7 @@ export default function CreateInvoicePage() {
                         <div className="card" style={{ padding: 'var(--space-4)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
                                 <Calculator size={18} />
-                                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Summary</h3>
+                                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Ringkasan</h3>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -524,7 +478,7 @@ export default function CreateInvoicePage() {
                                     <span className="money">{formatCurrency(totals.subtotal)}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <span style={{ color: 'var(--text-secondary)' }}>Tax</span>
+                                    <span style={{ color: 'var(--text-secondary)' }}>Pajak</span>
                                     <span className="money">{formatCurrency(totals.tax)}</span>
                                 </div>
                                 <div style={{
@@ -532,7 +486,7 @@ export default function CreateInvoicePage() {
                                     paddingTop: 'var(--space-3)', borderTop: '2px solid var(--border-color)',
                                     fontWeight: 700, fontSize: '1.25rem'
                                 }}>
-                                    <span>Grand Total</span>
+                                    <span>Total Akhir</span>
                                     <span className="money">{formatCurrency(totals.total)}</span>
                                 </div>
                             </div>
@@ -542,12 +496,25 @@ export default function CreateInvoicePage() {
             </main>
 
             {/* Click outside to close dropdown */}
-            {showItemDropdown && (
-                <div
-                    style={{ position: 'fixed', inset: 0, zIndex: 50 }}
-                    onClick={() => setShowItemDropdown(null)}
-                />
-            )}
+            <SelectCustomerModal
+                isOpen={isCustomerModalOpen}
+                onClose={() => setIsCustomerModalOpen(false)}
+                onSelect={(c) => {
+                    handleCustomerChange(c.id);
+                    setIsCustomerModalOpen(false);
+                }}
+            />
+
+            <SelectItemModal
+                isOpen={isItemModalOpen}
+                onClose={() => setIsItemModalOpen(false)}
+                onSelect={(item) => {
+                    if (activeLineId) {
+                        selectItem(activeLineId, item);
+                        setIsItemModalOpen(false);
+                    }
+                }}
+            />
         </div>
     );
 }

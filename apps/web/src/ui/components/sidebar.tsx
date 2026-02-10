@@ -34,80 +34,80 @@ interface NavItem {
 
 const navItems: NavItem[] = [
     {
-        label: 'Dashboard',
+        label: 'Dasbor',
         href: '/dashboard',
         icon: <LayoutDashboard size={20} />,
         permission: 'DASHBOARD_VIEW',
     },
     {
-        label: 'Sales',
+        label: 'Penjualan',
         icon: <FileText size={20} />,
         children: [
-            { label: 'Invoices', href: '/sales/invoices', permission: 'SALES_INVOICE_VIEW' },
-            { label: 'Payments', href: '/sales/payments', permission: 'SALES_PAYMENT_VIEW' },
-            { label: 'Credit Notes', href: '/sales/credit-notes', permission: 'SALES_CREDIT_NOTE_VIEW' },
+            { label: 'Faktur', href: '/sales/invoices', permission: 'SALES_INVOICE_VIEW' },
+            { label: 'Pembayaran', href: '/sales/payments', permission: 'SALES_PAYMENT_VIEW' },
+            { label: 'Nota Kredit', href: '/sales/credit-notes', permission: 'SALES_CREDIT_NOTE_VIEW' },
         ],
     },
     {
-        label: 'Purchases',
+        label: 'Pembelian',
         icon: <ShoppingCart size={20} />,
         children: [
-            { label: 'Receipts', href: '/purchases/receipts', permission: 'PURCHASE_RECEIPT_VIEW' },
-            { label: 'Bills', href: '/purchases/bills', permission: 'PURCHASE_BILL_VIEW' },
-            { label: 'Payments', href: '/purchases/payments', permission: 'PURCHASE_PAYMENT_VIEW' },
+            { label: 'Penerimaan Barang', href: '/purchases/receipts', permission: 'PURCHASE_RECEIPT_VIEW' },
+            { label: 'Tagihan', href: '/purchases/bills', permission: 'PURCHASE_BILL_VIEW' },
+            { label: 'Pembayaran', href: '/purchases/payments', permission: 'PURCHASE_PAYMENT_VIEW' },
         ],
     },
     {
-        label: 'Inventory',
+        label: 'Inventaris',
         icon: <Package size={20} />,
         children: [
-            { label: 'Stock On Hand', href: '/inventory/stock', permission: 'INVENTORY_VIEW' },
-            { label: 'Stock Ledger', href: '/inventory/ledger', permission: 'INVENTORY_VIEW' },
-            { label: 'Adjustments', href: '/inventory/adjustments', permission: 'INVENTORY_VIEW' },
-            { label: 'Stock Opname', href: '/inventory/opname', permission: 'INVENTORY_OPNAME_CREATE' },
+            { label: 'Stok Tersedia', href: '/inventory/stock', permission: 'INVENTORY_VIEW' },
+            { label: 'Buku Besar Stok', href: '/inventory/ledger', permission: 'INVENTORY_VIEW' },
+            { label: 'Penyesuaian', href: '/inventory/adjustments', permission: 'INVENTORY_VIEW' },
+            { label: 'Stok Opname', href: '/inventory/opname', permission: 'INVENTORY_OPNAME_CREATE' },
         ],
     },
     {
-        label: 'Customers',
+        label: 'Pelanggan',
         href: '/customers',
         icon: <Users size={20} />,
         permission: 'CUSTOMER_VIEW',
     },
     {
-        label: 'Suppliers',
+        label: 'Pemasok',
         href: '/suppliers',
         icon: <Truck size={20} />,
         permission: 'SUPPLIER_VIEW',
     },
     {
-        label: 'Items',
+        label: 'Barang',
         href: '/items',
         icon: <Receipt size={20} />,
         permission: 'ITEM_VIEW',
     },
     {
-        label: 'Accounting',
+        label: 'Akuntansi',
         icon: <BookOpen size={20} />,
         children: [
-            { label: 'Journal Entries', href: '/accounting/journals', permission: 'JOURNAL_VIEW' },
-            { label: 'Chart of Accounts', href: '/accounting/coa', permission: 'COA_VIEW' },
+            { label: 'Jurnal Umum', href: '/accounting/journals', permission: 'JOURNAL_VIEW' },
+            { label: 'Bagan Akun', href: '/accounting/coa', permission: 'COA_VIEW' },
         ],
     },
     {
-        label: 'Reports',
+        label: 'Laporan',
         icon: <BarChart3 size={20} />,
         children: [
-            { label: 'Sales Report', href: '/reports/sales', permission: 'REPORT_SALES' },
-            { label: 'AR Aging', href: '/reports/ar-aging', permission: 'REPORT_AR_AGING' },
-            { label: 'AP Aging', href: '/reports/ap-aging', permission: 'REPORT_AP_AGING' },
-            { label: 'Inventory Valuation', href: '/reports/inventory', permission: 'REPORT_INVENTORY' },
-            { label: 'Profit & Loss', href: '/reports/pnl', permission: 'REPORT_PNL' },
-            { label: 'Balance Sheet', href: '/reports/balance-sheet', permission: 'REPORT_BALANCE_SHEET' },
-            { label: 'Trial Balance', href: '/reports/trial-balance', permission: 'REPORT_TRIAL_BALANCE' },
+            { label: 'Laporan Penjualan', href: '/reports/sales', permission: 'REPORT_SALES' },
+            { label: 'Umur Piutang', href: '/reports/ar-aging', permission: 'REPORT_AR_AGING' },
+            { label: 'Umur Hutang', href: '/reports/ap-aging', permission: 'REPORT_AP_AGING' },
+            { label: 'Nilai Inventaris', href: '/reports/inventory', permission: 'REPORT_INVENTORY' },
+            { label: 'Laba Rugi', href: '/reports/pnl', permission: 'REPORT_PNL' },
+            { label: 'Neraca', href: '/reports/balance-sheet', permission: 'REPORT_BALANCE_SHEET' },
+            { label: 'Neraca Saldo', href: '/reports/trial-balance', permission: 'REPORT_TRIAL_BALANCE' },
         ],
     },
     {
-        label: 'Settings',
+        label: 'Pengaturan',
         href: '/settings',
         icon: <Settings size={20} />,
         permission: 'SETTINGS_VIEW',
@@ -147,7 +147,7 @@ export function Sidebar() {
 
             <nav className="sidebar-nav">
                 <div className="sidebar-section">
-                    <div className="sidebar-section-title">Main Menu</div>
+                    <div className="sidebar-section-title">Menu Utama</div>
                     {filteredNavItems.slice(0, 5).map((item) => (
                         <NavItemComponent
                             key={item.label}
@@ -160,7 +160,7 @@ export function Sidebar() {
                 </div>
 
                 <div className="sidebar-section">
-                    <div className="sidebar-section-title">Master Data</div>
+                    <div className="sidebar-section-title">Data Master</div>
                     {filteredNavItems.slice(5, 8).map((item) => (
                         <NavItemComponent
                             key={item.label}
@@ -173,7 +173,7 @@ export function Sidebar() {
                 </div>
 
                 <div className="sidebar-section">
-                    <div className="sidebar-section-title">Finance</div>
+                    <div className="sidebar-section-title">Keuangan</div>
                     {filteredNavItems.slice(8).map((item) => (
                         <NavItemComponent
                             key={item.label}
@@ -215,7 +215,7 @@ export function Sidebar() {
                     style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer' }}
                 >
                     <LogOut size={20} />
-                    Logout
+                    Keluar
                 </button>
             </div>
         </aside>

@@ -6,7 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost, generateIdempotencyKey } from '@/lib/api-client';
-import type { SalesInvoice, PaginatedResponse, SalesPayment, SalesCreditNote } from '@/shared/types';
+import type { SalesInvoice, SalesPayment, SalesCreditNote } from '@/shared/types';
 
 // Query Keys
 export const salesKeys = {
@@ -29,7 +29,7 @@ export function useSalesInvoices(params: {
 } = {}) {
     return useQuery({
         queryKey: salesKeys.invoiceList(params),
-        queryFn: () => apiGet<PaginatedResponse<SalesInvoice>>('/sales/invoices', params),
+        queryFn: () => apiGet<SalesInvoice[]>('/sales/invoices', params),
     });
 }
 
@@ -122,7 +122,7 @@ export function useSalesPayments(params: {
 } = {}) {
     return useQuery({
         queryKey: salesKeys.paymentList(params),
-        queryFn: () => apiGet<PaginatedResponse<SalesPayment>>('/sales/payments', params),
+        queryFn: () => apiGet<SalesPayment[]>('/sales/payments', params),
     });
 }
 
@@ -134,6 +134,6 @@ export function useSalesCreditNotes(params: {
 } = {}) {
     return useQuery({
         queryKey: [...salesKeys.all, 'credit-notes', params],
-        queryFn: () => apiGet<PaginatedResponse<SalesCreditNote>>('/sales/credit-notes', params),
+        queryFn: () => apiGet<SalesCreditNote[]>('/sales/credit-notes', params),
     });
 }

@@ -429,8 +429,8 @@ export async function createInventoryAdjustment(
         const result = await executeTx(
             connection,
             `INSERT INTO inventory_adjustments 
-             (adjustment_no, adj_date, status, adjustment_type, memo, created_by, created_at, updated_at)
-             VALUES (?, ?, 'DRAFT', ?, ?, ?, NOW(), NOW())`,
+             (adjustment_no, adj_date, status, adjustment_type, memo, created_by, created_at)
+             VALUES (?, ?, 'DRAFT', ?, ?, ?, NOW())`,
             [adjNo, input.adjDate, input.adjustmentType, input.memo || null, userId]
         );
         const adjId = result.insertId;
@@ -439,7 +439,7 @@ export async function createInventoryAdjustment(
         let lineNo = 1;
         // 3. Insert lines (Bulk)
         if (input.lines.length > 0) {
-            const lineValues: any[] = [];
+            const lineValues: (string | number | null)[] = [];
             const placeholders = input.lines.map(line => {
                 lineValues.push(
                     adjId,
@@ -614,7 +614,7 @@ export async function postInventoryAdjustment(id: number, userId: number): Promi
         await executeTx(
             connection,
             `UPDATE inventory_adjustments 
-             SET status = 'POSTED', posted_by = ?, posted_at = NOW(), updated_at = NOW() 
+             SET status = 'POSTED', posted_by = ?, posted_at = NOW() 
              WHERE id = ?`,
             [userId, id]
         );
@@ -782,7 +782,7 @@ export async function createStockOpnameSession(
             for (const row of stockRows) stockMap.set(row.item_id, Number(row.on_hand));
 
             // Bulk Insert Opname Items
-            const itemValues: any[] = [];
+            const itemValues: (string | number | null)[] = [];
             const placeholders = input.itemIds.map(itemId => {
                 const systemQty = stockMap.get(itemId) || 0;
                 itemValues.push(sessionId, itemId, systemQty);

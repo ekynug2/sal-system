@@ -36,10 +36,10 @@ interface CreditNoteLine {
 }
 
 const REASON_CODES = [
-    { code: 'RETURN', label: 'Return' },
-    { code: 'PRICE_ADJUSTMENT', label: 'Price Adjustment' },
-    { code: 'DAMAGED', label: 'Damaged Goods' },
-    { code: 'OTHER', label: 'Other' },
+    { code: 'RETURN', label: 'Retur' },
+    { code: 'PRICE_ADJUSTMENT', label: 'Penyesuaian Harga' },
+    { code: 'DAMAGED', label: 'Barang Rusak' },
+    { code: 'OTHER', label: 'Lainnya' },
 ];
 
 function generateId(): string {
@@ -79,12 +79,10 @@ export default function CreateCreditNotePage() {
     const [showInvoiceDropdown, setShowInvoiceDropdown] = useState(false);
     const [invoiceSearch, setInvoiceSearch] = useState('');
 
-    // Fetch posted invoices
-    const { data: invoicesData, isLoading: invoicesLoading } = useSalesInvoices({
+    const { data: invoices = [], isLoading: invoicesLoading } = useSalesInvoices({
         status: 'POSTED',
         limit: 100
     });
-    const invoices = invoicesData?.data || [];
 
     // Fetch selected invoice details
     const { data: selectedInvoice } = useQuery({
@@ -152,13 +150,13 @@ export default function CreateCreditNotePage() {
         e.preventDefault();
 
         if (!selectedInvoiceId) {
-            alert('Please select an invoice');
+            alert('Silakan pilih faktur');
             return;
         }
 
         const validLines = lines.filter(l => l.qty > 0);
         if (validLines.length === 0) {
-            alert('Please add at least one item with quantity > 0');
+            alert('Silakan tambahkan setidaknya satu barang dengan jumlah > 0');
             return;
         }
 
@@ -180,7 +178,7 @@ export default function CreateCreditNotePage() {
 
             router.push(`/sales/credit-notes/${result.id}`);
         } catch (err) {
-            alert(`Failed to create credit note: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            alert(`Gagal membuat nota kredit: ${err instanceof Error ? err.message : 'Kesalahan tidak diketahui'}`);
         }
     }
 
@@ -206,9 +204,9 @@ export default function CreateCreditNotePage() {
                                 <ArrowLeft size={20} />
                             </button>
                             <div>
-                                <h1 className="page-title">New Credit Note</h1>
+                                <h1 className="page-title">Nota Kredit Baru</h1>
                                 <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                                    Create customer return or credit adjustment
+                                    Buat retur pelanggan atau penyesuaian kredit
                                 </p>
                             </div>
                         </div>
@@ -218,7 +216,7 @@ export default function CreateCreditNotePage() {
                                 className="btn btn-secondary"
                                 onClick={() => router.push('/sales/credit-notes')}
                             >
-                                Cancel
+                                Batal
                             </button>
                             <button
                                 type="submit"
@@ -230,7 +228,7 @@ export default function CreateCreditNotePage() {
                                 ) : (
                                     <Save size={18} />
                                 )}
-                                Save Credit Note
+                                Simpan Nota Kredit
                             </button>
                         </div>
                     </div>
@@ -241,7 +239,7 @@ export default function CreateCreditNotePage() {
                             {/* Invoice Selection */}
                             <div style={{ position: 'relative', gridColumn: 'span 2' }}>
                                 <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
-                                    Original Invoice *
+                                    Faktur Asal *
                                 </label>
                                 <div style={{ position: 'relative' }}>
                                     <Search
@@ -256,7 +254,7 @@ export default function CreateCreditNotePage() {
                                     />
                                     <input
                                         type="text"
-                                        placeholder="Search invoice..."
+                                        placeholder="Cari faktur..."
                                         value={showInvoiceDropdown ? invoiceSearch : (selectedInvoice ? `${selectedInvoice.invoiceNo} - ${selectedInvoice.customerName}` : '')}
                                         onChange={(e) => {
                                             setInvoiceSearch(e.target.value);
@@ -283,10 +281,10 @@ export default function CreateCreditNotePage() {
                                             }}
                                         >
                                             {invoicesLoading ? (
-                                                <div style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Loading...</div>
+                                                <div style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Memuat...</div>
                                             ) : filteredInvoices.length === 0 ? (
                                                 <div style={{ padding: 'var(--space-3)', color: 'var(--text-muted)', textAlign: 'center' }}>
-                                                    No invoices found
+                                                    Faktur tidak ditemukan
                                                 </div>
                                             ) : (
                                                 filteredInvoices.map(inv => (
@@ -316,7 +314,7 @@ export default function CreateCreditNotePage() {
 
                             <div>
                                 <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
-                                    Credit Date *
+                                    Tanggal Kredit *
                                 </label>
                                 <input
                                     type="date"
@@ -328,7 +326,7 @@ export default function CreateCreditNotePage() {
 
                             <div>
                                 <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
-                                    Reason Code *
+                                    Kode Alasan *
                                 </label>
                                 <select
                                     value={reasonCode}
@@ -350,7 +348,7 @@ export default function CreateCreditNotePage() {
                                     style={{ width: 'auto' }}
                                 />
                                 <label htmlFor="restock" style={{ fontSize: '0.875rem' }}>
-                                    Return items to stock
+                                    Kembalikan barang ke stok
                                 </label>
                             </div>
 
@@ -362,7 +360,7 @@ export default function CreateCreditNotePage() {
                                     type="text"
                                     value={memo}
                                     onChange={(e) => setMemo(e.target.value)}
-                                    placeholder="Reason for credit note..."
+                                    placeholder="Alasan nota kredit..."
                                 />
                             </div>
                         </div>
@@ -376,7 +374,7 @@ export default function CreateCreditNotePage() {
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between'
                             }}>
                                 <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>
-                                    Credit Note Lines
+                                    Baris Nota Kredit
                                 </h3>
                             </div>
 
@@ -384,11 +382,11 @@ export default function CreateCreditNotePage() {
                                 <table style={{ minWidth: 700 }}>
                                     <thead>
                                         <tr>
-                                            <th>Item</th>
-                                            <th style={{ width: 100, textAlign: 'right' }}>Unit Price</th>
-                                            <th style={{ width: 100, textAlign: 'right' }}>Qty to Credit</th>
+                                            <th>Barang</th>
+                                            <th style={{ width: 100, textAlign: 'right' }}>Harga Satuan</th>
+                                            <th style={{ width: 100, textAlign: 'right' }}>Jml Dikreditkan</th>
                                             <th style={{ width: 120, textAlign: 'right' }}>Subtotal</th>
-                                            <th style={{ width: 100, textAlign: 'right' }}>Tax</th>
+                                            <th style={{ width: 100, textAlign: 'right' }}>Pajak</th>
                                             <th style={{ width: 120, textAlign: 'right' }}>Total</th>
                                             <th style={{ width: 50 }}></th>
                                         </tr>
@@ -435,14 +433,14 @@ export default function CreateCreditNotePage() {
                                             <td></td>
                                         </tr>
                                         <tr>
-                                            <td colSpan={3} style={{ textAlign: 'right', fontWeight: 500 }}>Tax</td>
+                                            <td colSpan={3} style={{ textAlign: 'right', fontWeight: 500 }}>Pajak</td>
                                             <td className="money" style={{ textAlign: 'right' }}>{formatCurrency(taxTotal)}</td>
                                             <td></td>
                                             <td></td>
                                             <td></td>
                                         </tr>
                                         <tr style={{ background: 'var(--bg-secondary)' }}>
-                                            <td colSpan={3} style={{ textAlign: 'right', fontWeight: 700, fontSize: '1.1rem' }}>Grand Total</td>
+                                            <td colSpan={3} style={{ textAlign: 'right', fontWeight: 700, fontSize: '1.1rem' }}>Total Akhir</td>
                                             <td colSpan={3} className="money" style={{ textAlign: 'right', fontWeight: 700, fontSize: '1.1rem', color: 'var(--primary-600)' }}>
                                                 {formatCurrency(grandTotal)}
                                             </td>

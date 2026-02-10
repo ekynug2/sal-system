@@ -50,16 +50,16 @@ export default function SalesPaymentsPage() {
                 <Sidebar />
                 <main className="main-content">
                     <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                        <h3>Permission Denied</h3>
-                        <p>You do not have permission to view sales payments.</p>
+                        <h3>Akses Ditolak</h3>
+                        <p>Anda tidak memiliki izin untuk melihat pembayaran penjualan.</p>
                     </div>
                 </main>
             </div>
         );
     }
 
-    const payments = data?.data || [];
-    const meta = data?.meta;
+    const payments = data || [];
+    // TODO: Re-implement pagination when API client returns meta
 
     return (
         <div className="app-layout">
@@ -67,14 +67,14 @@ export default function SalesPaymentsPage() {
             <main className="main-content">
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Sales Payments</h1>
+                        <h1 className="page-title">Pembayaran Penjualan</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            View and manage received payments
+                            Lihat dan kelola pembayaran yang diterima
                         </p>
                     </div>
                     <button className="btn btn-primary" onClick={() => router.push('/sales/payments/new')}>
                         <Plus size={18} />
-                        Receive Payment
+                        Terima Pembayaran
                     </button>
                 </div>
 
@@ -94,7 +94,7 @@ export default function SalesPaymentsPage() {
                             />
                             <input
                                 type="text"
-                                placeholder="Search by payment number, customer, or reference..."
+                                placeholder="Cari berdasarkan nomor pembayaran, pelanggan, atau referensi..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 style={{ paddingLeft: 42 }}
@@ -112,18 +112,18 @@ export default function SalesPaymentsPage() {
                     {isLoading ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto' }} />
-                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Loading payments...</p>
+                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Memuat pembayaran...</p>
                         </div>
                     ) : error ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                            Failed to load payments. Please try again.
+                            Gagal memuat pembayaran. Silakan coba lagi.
                         </div>
                     ) : payments.length === 0 ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <FileText size={48} style={{ color: 'var(--text-muted)', margin: '0 auto' }} />
-                            <h3 style={{ marginTop: 'var(--space-4)' }}>No payments found</h3>
+                            <h3 style={{ marginTop: 'var(--space-4)' }}>Tidak ada pembayaran ditemukan</h3>
                             <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-2)' }}>
-                                Receive your first payment to see it here
+                                Terima pembayaran pertama Anda untuk melihatnya di sini
                             </p>
                             <button
                                 className="btn btn-primary"
@@ -131,7 +131,7 @@ export default function SalesPaymentsPage() {
                                 onClick={() => router.push('/sales/payments/new')}
                             >
                                 <Plus size={18} />
-                                Receive Payment
+                                Terima Pembayaran
                             </button>
                         </div>
                     ) : (
@@ -140,12 +140,12 @@ export default function SalesPaymentsPage() {
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>Payment #</th>
-                                            <th>Date</th>
-                                            <th>Customer</th>
-                                            <th>Method</th>
-                                            <th>Reference</th>
-                                            <th style={{ textAlign: 'right' }}>Amount</th>
+                                            <th>No. Pembayaran</th>
+                                            <th>Tanggal</th>
+                                            <th>Pelanggan</th>
+                                            <th>Metode</th>
+                                            <th>Referensi</th>
+                                            <th style={{ textAlign: 'right' }}>Jumlah</th>
                                             <th style={{ width: 50 }}></th>
                                         </tr>
                                     </thead>
@@ -181,7 +181,7 @@ export default function SalesPaymentsPage() {
                                                         onClick={() => {
                                                             // Show payment details in alert for now
                                                             // TODO: Create detail page or modal
-                                                            alert(`Payment Details:\n\nPayment No: ${payment.paymentNo}\nCustomer: ${payment.customerName}\nDate: ${formatDate(payment.receivedDate)}\nMethod: ${payment.method}\nAmount: ${formatCurrency(payment.amountTotal)}\nReference: ${payment.referenceNo || '-'}\nMemo: ${payment.memo || '-'}`);
+                                                            alert(`Detail Pembayaran:\n\nNo. Pembayaran: ${payment.paymentNo}\nPelanggan: ${payment.customerName}\nTanggal: ${formatDate(payment.receivedDate)}\nMetode: ${payment.method}\nJumlah: ${formatCurrency(payment.amountTotal)}\nReferensi: ${payment.referenceNo || '-'}\nMemo: ${payment.memo || '-'}`);
                                                         }}
                                                     >
                                                         <Eye size={18} />
@@ -193,8 +193,8 @@ export default function SalesPaymentsPage() {
                                 </table>
                             </div>
 
-                            {/* Pagination */}
-                            {meta && (
+                            {/* Pagination - TODO: Re-implement when API returns meta */}
+                            {payments.length > 0 && (
                                 <div
                                     style={{
                                         display: 'flex',
@@ -205,8 +205,7 @@ export default function SalesPaymentsPage() {
                                     }}
                                 >
                                     <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                        Showing {(page - 1) * meta.limit + 1} - {Math.min(page * meta.limit, meta.total)} of{' '}
-                                        {meta.total} payments
+                                        Menampilkan {payments.length} pembayaran
                                     </span>
                                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                                         <button
@@ -224,12 +223,12 @@ export default function SalesPaymentsPage() {
                                                 fontWeight: 500,
                                             }}
                                         >
-                                            {page} / {meta.totalPages}
+                                            Halaman {page}
                                         </span>
                                         <button
                                             className="btn btn-secondary"
-                                            onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                                            disabled={page >= meta.totalPages}
+                                            onClick={() => setPage((p) => p + 1)}
+                                            disabled={payments.length < 20}
                                         >
                                             <ChevronRight size={18} />
                                         </button>

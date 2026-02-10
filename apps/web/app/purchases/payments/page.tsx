@@ -49,16 +49,16 @@ export default function PurchasePaymentsPage() {
                 <Sidebar />
                 <main className="main-content">
                     <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                        <h3>Permission Denied</h3>
-                        <p>You do not have permission to view purchase payments.</p>
+                        <h3>Akses Ditolak</h3>
+                        <p>Anda tidak memiliki izin untuk melihat pembayaran pembelian.</p>
                     </div>
                 </main>
             </div>
         );
     }
 
-    const payments = data?.data || [];
-    const meta = data?.meta;
+    const payments = data || [];
+    // TODO: Re-implement pagination when API client returns meta
 
     return (
         <div className="app-layout">
@@ -66,14 +66,14 @@ export default function PurchasePaymentsPage() {
             <main className="main-content">
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Purchase Payments</h1>
+                        <h1 className="page-title">Pembayaran Pembelian</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            View and manage payments to suppliers
+                            Lihat dan kelola pembayaran ke pemasok
                         </p>
                     </div>
                     <button className="btn btn-primary" onClick={() => router.push('/purchases/payments/new')}>
                         <Plus size={18} />
-                        Make Payment
+                        Buat Pembayaran
                     </button>
                 </div>
 
@@ -89,11 +89,12 @@ export default function PurchasePaymentsPage() {
                                     top: '50%',
                                     transform: 'translateY(-50%)',
                                     color: 'var(--text-muted)',
+                                    pointerEvents: 'none',
                                 }}
                             />
                             <input
                                 type="text"
-                                placeholder="Search by payment number, supplier, or reference..."
+                                placeholder="Cari berdasarkan nomor pembayaran, pemasok, atau referensi..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 style={{ paddingLeft: 42 }}
@@ -111,18 +112,18 @@ export default function PurchasePaymentsPage() {
                     {isLoading ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto' }} />
-                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Loading payments...</p>
+                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Memuat pembayaran...</p>
                         </div>
                     ) : error ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                            Failed to load payments. Please try again.
+                            Gagal memuat pembayaran. Silakan coba lagi.
                         </div>
                     ) : payments.length === 0 ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <FileText size={48} style={{ color: 'var(--text-muted)', margin: '0 auto' }} />
-                            <h3 style={{ marginTop: 'var(--space-4)' }}>No payments found</h3>
+                            <h3 style={{ marginTop: 'var(--space-4)' }}>Tidak ada pembayaran ditemukan</h3>
                             <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-2)' }}>
-                                Make your first payment to see it here
+                                Buat pembayaran pertama Anda untuk melihatnya di sini
                             </p>
                             <button
                                 className="btn btn-primary"
@@ -130,7 +131,7 @@ export default function PurchasePaymentsPage() {
                                 onClick={() => router.push('/purchases/payments/new')}
                             >
                                 <Plus size={18} />
-                                Make Payment
+                                Buat Pembayaran
                             </button>
                         </div>
                     ) : (
@@ -139,12 +140,12 @@ export default function PurchasePaymentsPage() {
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>Payment #</th>
-                                            <th>Date</th>
-                                            <th>Supplier</th>
-                                            <th>Method</th>
-                                            <th>Reference</th>
-                                            <th style={{ textAlign: 'right' }}>Amount</th>
+                                            <th>No. Pembayaran</th>
+                                            <th>Tanggal</th>
+                                            <th>Pemasok</th>
+                                            <th>Metode</th>
+                                            <th>Referensi</th>
+                                            <th style={{ textAlign: 'right' }}>Jumlah</th>
                                             <th style={{ width: 50 }}></th>
                                         </tr>
                                     </thead>
@@ -190,8 +191,8 @@ export default function PurchasePaymentsPage() {
                                 </table>
                             </div>
 
-                            {/* Pagination */}
-                            {meta && (
+                            {/* Pagination - TODO: Re-implement when API returns meta */}
+                            {payments.length > 0 && (
                                 <div
                                     style={{
                                         display: 'flex',
@@ -202,8 +203,7 @@ export default function PurchasePaymentsPage() {
                                     }}
                                 >
                                     <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                        Showing {(page - 1) * meta.limit + 1} - {Math.min(page * meta.limit, meta.total)} of{' '}
-                                        {meta.total} payments
+                                        Menampilkan {payments.length} pembayaran
                                     </span>
                                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                                         <button
@@ -221,12 +221,12 @@ export default function PurchasePaymentsPage() {
                                                 fontWeight: 500,
                                             }}
                                         >
-                                            {page} / {meta.totalPages}
+                                            Halaman {page}
                                         </span>
                                         <button
                                             className="btn btn-secondary"
-                                            onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                                            disabled={page >= meta.totalPages}
+                                            onClick={() => setPage((p) => p + 1)}
+                                            disabled={payments.length < 20}
                                         >
                                             <ChevronRight size={18} />
                                         </button>

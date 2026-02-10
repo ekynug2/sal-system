@@ -8,8 +8,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/ui/providers/auth-provider';
 import { Sidebar } from '@/ui/components/sidebar';
+import { ExportPrintToolbar } from '@/ui/components/export-print-toolbar';
+import { ConfirmDialog } from '@/ui/components/confirm-dialog';
 import { useSalesInvoices, usePostInvoice } from '@/hooks/use-sales';
 import { formatCurrency, formatDate } from '@/lib/api-client';
+import { exportToExcel, exportToCSV, type ExportColumn } from '@/lib/export-utils';
+import { printHTML, generatePrintTable } from '@/lib/print-utils';
+import type { SalesInvoice } from '@/shared/types';
 import {
     Plus,
     Search,
@@ -22,6 +27,7 @@ import {
     ChevronRight,
     Loader2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const statusColors: Record<string, string> = {
     DRAFT: 'badge-draft',
@@ -38,6 +44,10 @@ export default function SalesInvoicesPage() {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('');
     const [showActions, setShowActions] = useState<number | null>(null);
+    const [confirmPost, setConfirmPost] = useState<{ open: boolean; invoiceId: number | null }>({
+        open: false,
+        invoiceId: null,
+    });
 
     const { data, isLoading, error } = useSalesInvoices({ page, limit: 20, status: statusFilter || undefined });
     const postInvoice = usePostInvoice();
@@ -55,19 +65,75 @@ export default function SalesInvoicesPage() {
         return null;
     }
 
-    const invoices = data?.data || [];
-    const meta = data?.meta;
+    const invoices = data || [];
+
+    // Export column definitions
+    const exportColumns: ExportColumn<SalesInvoice>[] = [
+        { header: 'No. Faktur', accessor: 'invoiceNo', width: 15 },
+        { header: 'Tanggal', accessor: (row) => formatDate(row.invoiceDate), width: 12 },
+        { header: 'Pelanggan', accessor: 'customerName', width: 25 },
+        { header: 'Jatuh Tempo', accessor: (row) => formatDate(row.dueDate), width: 12 },
+        { header: 'Subtotal', accessor: 'subtotal', width: 15 },
+        { header: 'Pajak', accessor: 'taxTotal', width: 12 },
+        { header: 'Total Akhir', accessor: 'grandTotal', width: 15 },
+        { header: 'Dibayar', accessor: 'paidAmount', width: 15 },
+        { header: 'Saldo', accessor: 'balanceDue', width: 15 },
+        { header: 'Status', accessor: 'status', width: 12 },
+    ];
+
+    // Handle Export to Excel
+    function handleExportExcel() {
+        exportToExcel(invoices, exportColumns, {
+            filename: `faktur_penjualan_${new Date().toISOString().split('T')[0]}`,
+            sheetName: 'Faktur',
+        });
+    }
+
+    // Handle Export to CSV
+    function handleExportCSV() {
+        exportToCSV(invoices, exportColumns, {
+            filename: `faktur_penjualan_${new Date().toISOString().split('T')[0]}`,
+        });
+    }
+
+    // Handle Print
+    function handlePrint() {
+        const printColumns = [
+            { header: 'No. Faktur', accessor: 'invoiceNo' as keyof SalesInvoice },
+            { header: 'Tanggal', accessor: (row: SalesInvoice) => formatDate(row.invoiceDate) },
+            { header: 'Pelanggan', accessor: 'customerName' as keyof SalesInvoice },
+            { header: 'Jatuh Tempo', accessor: (row: SalesInvoice) => formatDate(row.dueDate) },
+            { header: 'Jumlah', accessor: (row: SalesInvoice) => formatCurrency(row.grandTotal), className: 'money' },
+            { header: 'Saldo', accessor: (row: SalesInvoice) => formatCurrency(row.balanceDue), className: 'money' },
+            { header: 'Status', accessor: 'status' as keyof SalesInvoice },
+        ];
+
+        const html = generatePrintTable(invoices, printColumns, {
+            title: 'Faktur Penjualan',
+            subtitle: statusFilter ? `Status: ${statusFilter}` : 'Semua Faktur',
+        });
+
+        printHTML(html, 'Faktur Penjualan');
+    }
 
     async function handlePost(invoiceId: number) {
-        if (confirm('Are you sure you want to post this invoice? This action cannot be undone.')) {
-            try {
-                await postInvoice.mutateAsync(invoiceId);
-                alert('Invoice posted successfully!');
-            } catch (err) {
-                alert(`Failed to post invoice: ${err instanceof Error ? err.message : 'Unknown error'}`);
-            }
-        }
+        setConfirmPost({ open: true, invoiceId });
         setShowActions(null);
+    }
+
+    async function confirmPostInvoice() {
+        if (!confirmPost.invoiceId) return;
+
+        try {
+            await postInvoice.mutateAsync(confirmPost.invoiceId);
+            toast.success('Faktur berhasil diposting!', {
+                description: 'Faktur telah diposting dan tidak dapat diubah.',
+            });
+        } catch (err) {
+            toast.error('Gagal memposting faktur', {
+                description: err instanceof Error ? err.message : 'Terjadi kesalahan tak terduga',
+            });
+        }
     }
 
     return (
@@ -76,14 +142,14 @@ export default function SalesInvoicesPage() {
             <main className="main-content">
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Sales Invoices</h1>
+                        <h1 className="page-title">Faktur Penjualan</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            Manage customer invoices and track payments
+                            Kelola faktur pelanggan dan lacak pembayaran
                         </p>
                     </div>
                     <button className="btn btn-primary" onClick={() => router.push('/sales/invoices/new')}>
                         <Plus size={18} />
-                        New Invoice
+                        Faktur Baru
                     </button>
                 </div>
 
@@ -103,7 +169,7 @@ export default function SalesInvoicesPage() {
                             />
                             <input
                                 type="text"
-                                placeholder="Search by invoice number or customer..."
+                                placeholder="Cari berdasarkan nomor faktur atau pelanggan..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 style={{ paddingLeft: 42 }}
@@ -114,17 +180,26 @@ export default function SalesInvoicesPage() {
                             onChange={(e) => setStatusFilter(e.target.value)}
                             style={{ width: 180 }}
                         >
-                            <option value="">All Status</option>
+                            <option value="">Semua Status</option>
                             <option value="DRAFT">Draft</option>
-                            <option value="POSTED">Posted</option>
-                            <option value="PARTIALLY_PAID">Partially Paid</option>
-                            <option value="PAID">Paid</option>
-                            <option value="VOIDED">Voided</option>
+                            <option value="POSTED">Diposting</option>
+                            <option value="PARTIALLY_PAID">Dibayar Sebagian</option>
+                            <option value="PAID">Lunas</option>
+                            <option value="VOIDED">Dibatalkan</option>
                         </select>
                         <button className="btn btn-secondary">
                             <Filter size={18} />
-                            More Filters
+                            Filter Lainnya
                         </button>
+
+                        {/* Export & Print Toolbar */}
+                        <ExportPrintToolbar
+                            onPrint={handlePrint}
+                            onExportExcel={handleExportExcel}
+                            onExportCSV={handleExportCSV}
+                            showPrint={invoices.length > 0}
+                            showExport={invoices.length > 0}
+                        />
                     </div>
                 </div>
 
@@ -133,18 +208,18 @@ export default function SalesInvoicesPage() {
                     {isLoading ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto' }} />
-                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Loading invoices...</p>
+                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Memuat faktur...</p>
                         </div>
                     ) : error ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                            Failed to load invoices. Please try again.
+                            Gagal memuat faktur. Silakan coba lagi.
                         </div>
                     ) : invoices.length === 0 ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <FileText size={48} style={{ color: 'var(--text-muted)', margin: '0 auto' }} />
-                            <h3 style={{ marginTop: 'var(--space-4)' }}>No invoices found</h3>
+                            <h3 style={{ marginTop: 'var(--space-4)' }}>Tidak ada faktur ditemukan</h3>
                             <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-2)' }}>
-                                Create your first invoice to get started
+                                Buat faktur pertama Anda untuk memulai
                             </p>
                             <button
                                 className="btn btn-primary"
@@ -152,7 +227,7 @@ export default function SalesInvoicesPage() {
                                 onClick={() => router.push('/sales/invoices/new')}
                             >
                                 <Plus size={18} />
-                                Create Invoice
+                                Buat Faktur
                             </button>
                         </div>
                     ) : (
@@ -161,12 +236,12 @@ export default function SalesInvoicesPage() {
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>Invoice #</th>
-                                            <th>Date</th>
-                                            <th>Customer</th>
-                                            <th>Due Date</th>
-                                            <th style={{ textAlign: 'right' }}>Amount</th>
-                                            <th style={{ textAlign: 'right' }}>Balance</th>
+                                            <th>No. Faktur</th>
+                                            <th>Tanggal</th>
+                                            <th>Pelanggan</th>
+                                            <th>Jatuh Tempo</th>
+                                            <th style={{ textAlign: 'right' }}>Jumlah</th>
+                                            <th style={{ textAlign: 'right' }}>Saldo</th>
                                             <th>Status</th>
                                             <th style={{ width: 50 }}></th>
                                         </tr>
@@ -238,7 +313,7 @@ export default function SalesInvoicesPage() {
                                                                 onClick={() => router.push(`/sales/invoices/${inv.id}`)}
                                                             >
                                                                 <Eye size={16} />
-                                                                View Details
+                                                                Lihat Detail
                                                             </button>
                                                             {inv.status === 'DRAFT' && (
                                                                 <button
@@ -248,7 +323,7 @@ export default function SalesInvoicesPage() {
                                                                     disabled={postInvoice.isPending}
                                                                 >
                                                                     <Send size={16} />
-                                                                    Post Invoice
+                                                                    Posting Faktur
                                                                 </button>
                                                             )}
                                                         </div>
@@ -260,8 +335,8 @@ export default function SalesInvoicesPage() {
                                 </table>
                             </div>
 
-                            {/* Pagination */}
-                            {meta && (
+                            {/* Pagination - TODO: Re-implement when API returns meta */}
+                            {invoices.length > 0 && (
                                 <div
                                     style={{
                                         display: 'flex',
@@ -272,8 +347,7 @@ export default function SalesInvoicesPage() {
                                     }}
                                 >
                                     <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                        Showing {(page - 1) * meta.limit + 1} - {Math.min(page * meta.limit, meta.total)} of{' '}
-                                        {meta.total} invoices
+                                        Menampilkan {invoices.length} faktur
                                     </span>
                                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                                         <button
@@ -291,12 +365,12 @@ export default function SalesInvoicesPage() {
                                                 fontWeight: 500,
                                             }}
                                         >
-                                            {page} / {meta.totalPages}
+                                            Halaman {page}
                                         </span>
                                         <button
                                             className="btn btn-secondary"
-                                            onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                                            disabled={page >= meta.totalPages}
+                                            onClick={() => setPage((p) => p + 1)}
+                                            disabled={invoices.length < 20}
                                         >
                                             <ChevronRight size={18} />
                                         </button>
@@ -306,6 +380,19 @@ export default function SalesInvoicesPage() {
                         </>
                     )}
                 </div>
+
+                {/* Confirmation Dialog */}
+                <ConfirmDialog
+                    open={confirmPost.open}
+                    onOpenChange={(open) => setConfirmPost({ open, invoiceId: null })}
+                    title="Posting Faktur?"
+                    description="Apakah Anda yakin ingin memposting faktur ini? Setelah diposting, faktur tidak dapat diedit atau dihapus. Tindakan ini bersifat permanen."
+                    confirmLabel="Posting Faktur"
+                    cancelLabel="Batal"
+                    onConfirm={confirmPostInvoice}
+                    variant="warning"
+                    isLoading={postInvoice.isPending}
+                />
             </main>
         </div>
     );

@@ -6,7 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost } from '@/lib/api-client';
-import type { ChartOfAccount, JournalEntry, PaginatedResponse } from '@/shared/types';
+import type { ChartOfAccount, JournalEntry } from '@/shared/types';
 
 // Query Keys
 export const accountingKeys = {
@@ -77,7 +77,7 @@ export function useJournalEntries(params: {
 
     return useQuery({
         queryKey: accountingKeys.journals(params),
-        queryFn: () => apiGet<PaginatedResponse<JournalEntry>>('/accounting/journals', queryParams),
+        queryFn: () => apiGet<JournalEntry[]>('/accounting/journals', queryParams),
     });
 }
 

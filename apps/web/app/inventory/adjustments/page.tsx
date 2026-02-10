@@ -36,8 +36,8 @@ export default function InventoryAdjustmentsPage() {
         return null;
     }
 
-    const adjustments = adjustmentsData?.data || [];
-    const meta = adjustmentsData?.meta;
+    const adjustments = adjustmentsData || [];
+    // TODO: Re-implement pagination when API client returns meta
 
     return (
         <div className="app-layout">
@@ -46,9 +46,9 @@ export default function InventoryAdjustmentsPage() {
                 {/* Header */}
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Inventory Adjustments</h1>
+                        <h1 className="page-title">Penyesuaian Persediaan</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            Manage stock adjustments and stock opname
+                            Kelola penyesuaian stok dan stok opname
                         </p>
                     </div>
                     <button
@@ -56,7 +56,7 @@ export default function InventoryAdjustmentsPage() {
                         onClick={() => router.push('/inventory/adjustments/new')}
                     >
                         <Plus size={18} />
-                        New Adjustment
+                        Penyesuaian Baru
                     </button>
                 </div>
 
@@ -70,14 +70,14 @@ export default function InventoryAdjustmentsPage() {
                     {isLoading ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto', color: 'var(--primary-500)' }} />
-                            <p style={{ marginTop: 'var(--space-2)', color: 'var(--text-secondary)' }}>Loading adjustments...</p>
+                            <p style={{ marginTop: 'var(--space-2)', color: 'var(--text-secondary)' }}>Memuat penyesuaian...</p>
                         </div>
                     ) : adjustments.length === 0 ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <FileText size={48} style={{ margin: '0 auto', color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }} />
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>No Adjustments Found</h3>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>Tidak Ada Penyesuaian Ditemukan</h3>
                             <p style={{ color: 'var(--text-secondary)', maxWidth: 400, margin: 'var(--space-2) auto' }}>
-                                Start by creating a new inventory adjustment to correct stock levels manually or from stock opname results.
+                                Mulailah dengan membuat penyesuaian persediaan baru untuk mengoreksi level stok secara manual atau dari hasil stok opname.
                             </p>
                             <button
                                 className="btn btn-primary"
@@ -85,7 +85,7 @@ export default function InventoryAdjustmentsPage() {
                                 style={{ marginTop: 'var(--space-4)' }}
                             >
                                 <Plus size={18} />
-                                Create New Adjustment
+                                Buat Penyesuaian Baru
                             </button>
                         </div>
                     ) : (
@@ -94,12 +94,12 @@ export default function InventoryAdjustmentsPage() {
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>Adjustment No</th>
-                                            <th>Date</th>
-                                            <th>Type</th>
+                                            <th>No Penyesuaian</th>
+                                            <th>Tanggal</th>
+                                            <th>Tipe</th>
                                             <th>Status</th>
                                             <th>Memo</th>
-                                            <th style={{ width: 80, textAlign: 'center' }}>Actions</th>
+                                            <th style={{ width: 80, textAlign: 'center' }}>Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -119,7 +119,7 @@ export default function InventoryAdjustmentsPage() {
                                                 </td>
                                                 <td>
                                                     <span className={`badge ${adj.status === 'POSTED' ? 'badge-green' :
-                                                            adj.status === 'DRAFT' ? 'badge-gray' : 'badge-red'
+                                                        adj.status === 'DRAFT' ? 'badge-gray' : 'badge-red'
                                                         }`}>
                                                         {adj.status}
                                                     </span>
@@ -138,8 +138,8 @@ export default function InventoryAdjustmentsPage() {
                                 </table>
                             </div>
 
-                            {/* Pagination */}
-                            {meta && meta.totalPages > 1 && (
+                            {/* Pagination - TODO: Re-implement when API returns meta */}
+                            {adjustments.length > 0 && (
                                 <div style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)',
                                     padding: 'var(--space-4)', borderTop: '1px solid var(--border-color)'
@@ -152,11 +152,11 @@ export default function InventoryAdjustmentsPage() {
                                         <ChevronLeft size={16} />
                                     </button>
                                     <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
-                                        Page {page} of {meta.totalPages}
+                                        Halaman {page}
                                     </span>
                                     <button
                                         className="btn btn-secondary"
-                                        disabled={page === meta.totalPages}
+                                        disabled={adjustments.length < 20}
                                         onClick={() => setPage(page + 1)}
                                     >
                                         <ChevronRight size={16} />

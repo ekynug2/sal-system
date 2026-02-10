@@ -5,8 +5,8 @@
 // =============================================================================
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPost, generateIdempotencyKey } from '@/lib/api-client';
-import type { ItemStock, StockLedgerEntry, PaginatedResponse, InventoryAdjustment, StockOpnameSession } from '@/shared/types';
+import { apiGet, apiPost, apiPut, generateIdempotencyKey } from '@/lib/api-client';
+import type { ItemStock, StockLedgerEntry, InventoryAdjustment, StockOpnameSession } from '@/shared/types';
 
 // Query Keys
 export const inventoryKeys = {
@@ -39,7 +39,7 @@ export function useStockLedger(params: {
 } = {}) {
     return useQuery({
         queryKey: inventoryKeys.ledger(params),
-        queryFn: () => apiGet<PaginatedResponse<StockLedgerEntry>>('/inventory/ledger', params),
+        queryFn: () => apiGet<StockLedgerEntry[]>('/inventory/ledger', params),
     });
 }
 
@@ -49,7 +49,7 @@ export function useInventoryAdjustments(params: {
 } = {}) {
     return useQuery({
         queryKey: inventoryKeys.adjustmentList(params),
-        queryFn: () => apiGet<PaginatedResponse<InventoryAdjustment>>('/inventory/adjustments', params),
+        queryFn: () => apiGet<InventoryAdjustment[]>('/inventory/adjustments', params),
     });
 }
 
@@ -103,6 +103,77 @@ export function useStockOpnameSessions(params: {
 } = {}) {
     return useQuery({
         queryKey: inventoryKeys.opnameList(params),
-        queryFn: () => apiGet<PaginatedResponse<StockOpnameSession>>('/inventory/opname', params),
+        queryFn: () => apiGet<StockOpnameSession[]>('/inventory/opname', params),
+    });
+}
+
+export function useStockOpnameSession(id: number) {
+    return useQuery({
+        queryKey: inventoryKeys.opnameDetail(id),
+        queryFn: () => apiGet<StockOpnameSession>(`/inventory/opname/${id}`),
+        enabled: !!id,
+    });
+}
+
+export interface CreateOpnameSessionInput {
+    opnameDate: string;
+    location?: string;
+    memo?: string;
+    itemIds: number[];
+}
+
+export function useCreateStockOpnameSession() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (input: CreateOpnameSessionInput) => apiPost<{ id: number }>('/inventory/opname', input),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: inventoryKeys.opname() });
+        },
+    });
+}
+
+export interface UpdateOpnameItemsInput {
+    id: number;
+    items: {
+        itemId: number;
+        countedQty: number;
+        notes?: string;
+    }[];
+}
+
+export function useUpdateOpnameItems() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (input: UpdateOpnameItemsInput) =>
+            apiPut(`/inventory/opname/${input.id}/items`, { items: input.items }),
+        onSuccess: (_, input) => {
+            queryClient.invalidateQueries({ queryKey: inventoryKeys.opnameDetail(input.id) });
+        },
+    });
+}
+
+export function useSubmitOpnameSession() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: number) => apiPost(`/inventory/opname/${id}/submit`, {}),
+        onSuccess: (_, id) => {
+            queryClient.invalidateQueries({ queryKey: inventoryKeys.opnameDetail(id) });
+            queryClient.invalidateQueries({ queryKey: inventoryKeys.opnameList({}) });
+        },
+    });
+}
+
+export function usePostOpnameSession() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: number) => apiPost(`/inventory/opname/${id}/post`, { idempotencyKey: generateIdempotencyKey() }),
+        onSuccess: (_, id) => {
+            queryClient.invalidateQueries({ queryKey: inventoryKeys.opnameDetail(id) });
+            queryClient.invalidateQueries({ queryKey: inventoryKeys.opnameList({}) });
+        },
     });
 }

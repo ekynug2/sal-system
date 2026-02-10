@@ -8,7 +8,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/ui/providers/auth-provider';
 import { Sidebar } from '@/ui/components/sidebar';
 import { useSalesInvoice, usePostInvoice } from '@/hooks/use-sales';
+import { useSettings } from '@/hooks/use-settings';
 import { formatCurrency, formatDate } from '@/lib/api-client';
+import { generateDocumentPrint, printHTML, buildHeaderSettings } from '@/lib/print-utils';
 import {
     ArrowLeft,
     FileText,
@@ -38,6 +40,7 @@ export default function InvoiceDetailPage() {
 
     const { data: invoice, isLoading, error } = useSalesInvoice(invoiceId);
     const postInvoice = usePostInvoice();
+    const { data: settings } = useSettings();
 
     if (authLoading) {
         return (
@@ -53,15 +56,42 @@ export default function InvoiceDetailPage() {
     }
 
     async function handlePost() {
-        if (confirm('Are you sure you want to post this invoice? This action cannot be undone.')) {
+        if (confirm('Apakah Anda yakin ingin memposting faktur ini? Tindakan ini tidak dapat dibatalkan.')) {
             try {
                 await postInvoice.mutateAsync(invoiceId);
-                alert('Invoice posted successfully!');
+                alert('Faktur berhasil diposting!');
             } catch (err) {
-                alert(`Failed to post invoice: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                alert(`Gagal memposting faktur: ${err instanceof Error ? err.message : 'Kesalahan tidak diketahui'}`);
             }
         }
     }
+
+    const handlePrint = () => {
+        if (!invoice) return;
+
+        const headerSettings = buildHeaderSettings(settings);
+
+        const html = generateDocumentPrint({
+            documentType: 'Faktur Penjualan',
+            documentNo: invoice.invoiceNo,
+            date: formatDate(invoice.invoiceDate),
+            dueDate: formatDate(invoice.dueDate),
+            partyName: invoice.customerName,
+            lines: invoice.lines.map((line) => ({
+                description: line.itemName || line.itemSku || 'Barang Tidak Diketahui',
+                qty: line.qty,
+                unitPrice: line.unitPrice,
+                total: line.lineTotal,
+            })),
+            subtotal: invoice.subtotal,
+            taxTotal: invoice.taxTotal,
+            grandTotal: invoice.grandTotal,
+            memo: invoice.memo,
+            headerSettings,
+        });
+
+        printHTML(html, `Faktur_${invoice.invoiceNo}`);
+    };
 
     return (
         <div className="app-layout">
@@ -80,7 +110,7 @@ export default function InvoiceDetailPage() {
                         <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                                 <h1 className="page-title">
-                                    {isLoading ? 'Loading...' : invoice?.invoiceNo || 'Invoice Not Found'}
+                                    {isLoading ? 'Memuat...' : invoice?.invoiceNo || 'Faktur Tidak Ditemukan'}
                                 </h1>
                                 {invoice && (
                                     <span className={`badge ${statusColors[invoice.status] || 'badge-draft'}`}>
@@ -89,12 +119,13 @@ export default function InvoiceDetailPage() {
                                 )}
                             </div>
                             <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                                Sales Invoice Details
+                                Detail Faktur Penjualan
                             </p>
                         </div>
                     </div>
                     {invoice && (
                         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+
                             {invoice.status === 'DRAFT' && (
                                 <button
                                     className="btn btn-primary"
@@ -106,14 +137,14 @@ export default function InvoiceDetailPage() {
                                     ) : (
                                         <Send size={18} />
                                     )}
-                                    Post Invoice
+                                    Posting Faktur
                                 </button>
                             )}
-                            <button className="btn btn-secondary">
+                            <button className="btn btn-secondary" onClick={handlePrint}>
                                 <Printer size={18} />
-                                Print
+                                Cetak
                             </button>
-                            <button className="btn btn-secondary">
+                            <button className="btn btn-secondary" onClick={handlePrint}>
                                 <Download size={18} />
                                 PDF
                             </button>
@@ -125,24 +156,24 @@ export default function InvoiceDetailPage() {
                     <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                         <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto' }} />
                         <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>
-                            Loading invoice...
+                            Memuat faktur...
                         </p>
                     </div>
                 ) : error || !invoice ? (
                     <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                         <FileText size={48} style={{ color: 'var(--accent-red)', margin: '0 auto' }} />
                         <h3 style={{ marginTop: 'var(--space-4)', color: 'var(--accent-red)' }}>
-                            Invoice Not Found
+                            Faktur Tidak Ditemukan
                         </h3>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-2)' }}>
-                            The invoice you&apos;re looking for doesn&apos;t exist or you don&apos;t have permission to view it.
+                            Faktur yang Anda cari tidak ditemukan atau Anda tidak memiliki izin untuk melihatnya.
                         </p>
                         <button
                             className="btn btn-primary"
                             style={{ marginTop: 'var(--space-4)' }}
                             onClick={() => router.push('/sales/invoices')}
                         >
-                            Back to Invoices
+                            Kembali ke Daftar Faktur
                         </button>
                     </div>
                 ) : (
@@ -161,7 +192,7 @@ export default function InvoiceDetailPage() {
                                     </div>
                                     <div>
                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                                            Customer
+                                            Pelanggan
                                         </div>
                                         <div style={{ fontWeight: 600 }}>{invoice.customerName}</div>
                                     </div>
@@ -181,11 +212,11 @@ export default function InvoiceDetailPage() {
                                     <div style={{ flex: 1 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                             <div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Invoice Date</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tanggal Faktur</div>
                                                 <div style={{ fontWeight: 500 }}>{formatDate(invoice.invoiceDate)}</div>
                                             </div>
                                             <div style={{ textAlign: 'right' }}>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Due Date</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Jatuh Tempo</div>
                                                 <div style={{ fontWeight: 500 }}>{formatDate(invoice.dueDate)}</div>
                                             </div>
                                         </div>
@@ -206,13 +237,13 @@ export default function InvoiceDetailPage() {
                                     <div style={{ flex: 1 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                             <div>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Paid</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Dibayar</div>
                                                 <div style={{ fontWeight: 500, color: 'var(--accent-green)' }}>
                                                     {formatCurrency(invoice.paidAmount)}
                                                 </div>
                                             </div>
                                             <div style={{ textAlign: 'right' }}>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Balance Due</div>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Saldo Hutang</div>
                                                 <div style={{ fontWeight: 600, color: invoice.balanceDue > 0 ? 'var(--accent-red)' : 'inherit' }}>
                                                     {formatCurrency(invoice.balanceDue)}
                                                 </div>
@@ -227,9 +258,9 @@ export default function InvoiceDetailPage() {
                         <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 'var(--space-6)' }}>
                             <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                                 <Package size={18} />
-                                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Line Items</h3>
+                                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Daftar Barang</h3>
                                 <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                                    ({invoice.lines.length} items)
+                                    ({invoice.lines.length} barang)
                                 </span>
                             </div>
                             <div className="table-container" style={{ border: 'none' }}>
@@ -237,11 +268,11 @@ export default function InvoiceDetailPage() {
                                     <thead>
                                         <tr>
                                             <th style={{ width: 50 }}>#</th>
-                                            <th>Item</th>
-                                            <th style={{ textAlign: 'right' }}>Qty</th>
-                                            <th style={{ textAlign: 'right' }}>Unit Price</th>
-                                            <th style={{ textAlign: 'right' }}>Discount</th>
-                                            <th style={{ textAlign: 'right' }}>Tax</th>
+                                            <th>Barang</th>
+                                            <th style={{ textAlign: 'right' }}>Jml</th>
+                                            <th style={{ textAlign: 'right' }}>Harga Satuan</th>
+                                            <th style={{ textAlign: 'right' }}>Diskon</th>
+                                            <th style={{ textAlign: 'right' }}>Pajak</th>
                                             <th style={{ textAlign: 'right' }}>Total</th>
                                         </tr>
                                     </thead>
@@ -290,19 +321,19 @@ export default function InvoiceDetailPage() {
                                     </div>
                                     {invoice.discountAmount > 0 && (
                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: 'var(--text-secondary)' }}>Discount</span>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Diskon</span>
                                             <span className="money" style={{ color: 'var(--accent-red)' }}>
                                                 -{formatCurrency(invoice.discountAmount)}
                                             </span>
                                         </div>
                                     )}
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>Tax</span>
+                                        <span style={{ color: 'var(--text-secondary)' }}>Pajak</span>
                                         <span className="money">{formatCurrency(invoice.taxTotal)}</span>
                                     </div>
                                     {invoice.shippingFee > 0 && (
                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ color: 'var(--text-secondary)' }}>Shipping</span>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Pengiriman</span>
                                             <span className="money">{formatCurrency(invoice.shippingFee)}</span>
                                         </div>
                                     )}
@@ -311,20 +342,20 @@ export default function InvoiceDetailPage() {
                                         paddingTop: 'var(--space-3)', borderTop: '2px solid var(--border-color)',
                                         fontWeight: 700, fontSize: '1.125rem'
                                     }}>
-                                        <span>Grand Total</span>
+                                        <span>Total Akhir</span>
                                         <span className="money">{formatCurrency(invoice.grandTotal)}</span>
                                     </div>
                                     {invoice.balanceDue > 0 && invoice.paidAmount > 0 && (
                                         <>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--accent-green)' }}>
-                                                <span>Paid</span>
+                                                <span>Dibayar</span>
                                                 <span className="money">-{formatCurrency(invoice.paidAmount)}</span>
                                             </div>
                                             <div style={{
                                                 display: 'flex', justifyContent: 'space-between',
                                                 fontWeight: 700, color: 'var(--accent-red)'
                                             }}>
-                                                <span>Balance Due</span>
+                                                <span>Saldo Hutang</span>
                                                 <span className="money">{formatCurrency(invoice.balanceDue)}</span>
                                             </div>
                                         </>
@@ -337,7 +368,7 @@ export default function InvoiceDetailPage() {
                         {invoice.memo && (
                             <div className="card" style={{ marginTop: 'var(--space-6)', padding: 'var(--space-4)' }}>
                                 <h4 style={{ margin: 0, marginBottom: 'var(--space-2)', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                                    Notes / Memo
+                                    Catatan / Memo
                                 </h4>
                                 <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{invoice.memo}</p>
                             </div>

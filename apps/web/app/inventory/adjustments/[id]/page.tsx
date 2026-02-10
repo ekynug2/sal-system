@@ -55,9 +55,9 @@ export default function AdjustmentDetailPage({ params }: { params: Promise<{ id:
                 <main className="main-content">
                     <div className="card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
                         <AlertCircle size={48} style={{ color: 'var(--accent-red)', margin: '0 auto' }} />
-                        <h2 style={{ marginTop: 'var(--space-4)' }}>Adjustment Not Found</h2>
+                        <h2 style={{ marginTop: 'var(--space-4)' }}>Penyesuaian Tidak Ditemukan</h2>
                         <button className="btn btn-secondary" onClick={() => router.push('/inventory/adjustments')}>
-                            Back to List
+                            Kembali ke Daftar
                         </button>
                     </div>
                 </main>
@@ -66,13 +66,13 @@ export default function AdjustmentDetailPage({ params }: { params: Promise<{ id:
     }
 
     async function handlePost() {
-        if (!confirm('Are you sure you want to POST this adjustment? Stock levels will be updated permanently.')) return;
+        if (!confirm('Apakah Anda yakin ingin memposting penyesuaian ini? Level stok akan diperbarui secara permanen.')) return;
 
         try {
             await postAdjustment.mutateAsync(id);
-            alert('Adjustment posted successfully');
+            alert('Penyesuaian berhasil diposting');
         } catch (err) {
-            alert(`Failed to post: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            alert(`Gagal memposting: ${err instanceof Error ? err.message : 'Kesalahan tidak diketahui'}`);
         }
     }
 
@@ -98,13 +98,13 @@ export default function AdjustmentDetailPage({ params }: { params: Promise<{ id:
                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                                 <h1 className="page-title">{adjustment.adjustmentNo}</h1>
                                 <span className={`badge ${isPosted ? 'badge-green' :
-                                        adjustment.status === 'DRAFT' ? 'badge-gray' : 'badge-red'
+                                    adjustment.status === 'DRAFT' ? 'badge-gray' : 'badge-red'
                                     }`}>
                                     {adjustment.status}
                                 </span>
                             </div>
                             <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                                {adjustment.adjustmentType} Adjustment
+                                Penyesuaian {adjustment.adjustmentType}
                             </p>
                         </div>
                     </div>
@@ -120,7 +120,7 @@ export default function AdjustmentDetailPage({ params }: { params: Promise<{ id:
                                 ) : (
                                     <ShieldCheck size={18} />
                                 )}
-                                Post Adjustment
+                                Posting Penyesuaian
                             </button>
                         )}
                         {/* {isPosted && (
@@ -137,16 +137,16 @@ export default function AdjustmentDetailPage({ params }: { params: Promise<{ id:
                         {/* Line Items */}
                         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                             <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)' }}>
-                                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Lines ({totalLines})</h3>
+                                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Baris ({totalLines})</h3>
                             </div>
                             <table className="compact-table">
                                 <thead>
                                     <tr>
-                                        <th>Item</th>
-                                        <th style={{ textAlign: 'right' }}>Qty Delta</th>
-                                        {isPosted && <th style={{ textAlign: 'right' }}>Unit Cost</th>}
-                                        {isPosted && <th style={{ textAlign: 'right' }}>Value Change</th>}
-                                        <th>Reason</th>
+                                        <th>Barang</th>
+                                        <th style={{ textAlign: 'right' }}>Delta Jml</th>
+                                        {isPosted && <th style={{ textAlign: 'right' }}>Biaya Satuan</th>}
+                                        {isPosted && <th style={{ textAlign: 'right' }}>Perubahan Nilai</th>}
+                                        <th>Alasan</th>
                                         <th>Memo</th>
                                     </tr>
                                 </thead>
@@ -186,13 +186,13 @@ export default function AdjustmentDetailPage({ params }: { params: Promise<{ id:
                     {/* Sidebar / Info */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                         <div className="card" style={{ padding: 'var(--space-4)' }}>
-                            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-4)' }}>Overview</h3>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-4)' }}>Ringkasan</h3>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                                     <Calendar size={18} style={{ color: 'var(--text-muted)' }} />
                                     <div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Date</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tanggal</div>
                                         <div style={{ fontWeight: 500 }}>{formatDate(adjustment.adjDate)}</div>
                                     </div>
                                 </div>
@@ -200,7 +200,7 @@ export default function AdjustmentDetailPage({ params }: { params: Promise<{ id:
                                     <FileText size={18} style={{ color: 'var(--text-muted)' }} />
                                     <div>
                                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Memo</div>
-                                        <div style={{ fontStyle: 'italic' }}>{adjustment.memo || 'No memo'}</div>
+                                        <div style={{ fontStyle: 'italic' }}>{adjustment.memo || 'Tidak ada memo'}</div>
                                     </div>
                                 </div>
                                 {isPosted && (
@@ -208,7 +208,7 @@ export default function AdjustmentDetailPage({ params }: { params: Promise<{ id:
                                         <CheckCircle size={18} style={{ color: 'var(--accent-green)' }} />
                                         <div>
                                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Status</div>
-                                            <div style={{ fontWeight: 500, color: 'var(--accent-green)' }}>Posted</div>
+                                            <div style={{ fontWeight: 500, color: 'var(--accent-green)' }}>Diposting</div>
                                         </div>
                                     </div>
                                 )}

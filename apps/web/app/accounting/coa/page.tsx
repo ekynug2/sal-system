@@ -35,12 +35,12 @@ const typeColors: Record<string, string> = {
 };
 
 const typeLabels: Record<string, string> = {
-    ASSET: 'Asset',
-    LIABILITY: 'Liability',
-    EQUITY: 'Equity',
-    REVENUE: 'Revenue',
-    EXPENSE: 'Expense',
-    COGS: 'COGS',
+    ASSET: 'Aset',
+    LIABILITY: 'Kewajiban',
+    EQUITY: 'Ekuitas',
+    REVENUE: 'Pendapatan',
+    EXPENSE: 'Beban',
+    COGS: 'HPP',
 };
 
 export default function ChartOfAccountsPage() {
@@ -108,16 +108,16 @@ export default function ChartOfAccountsPage() {
                 {/* Header */}
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Chart of Accounts</h1>
+                        <h1 className="page-title">Daftar Akun</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            Manage your accounts structure
+                            Kelola struktur akun Anda
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                         {hasPermission(Permissions.COA_CREATE) && (
                             <button className="btn btn-primary" onClick={() => setShowModal(true)}>
                                 <Plus size={18} />
-                                New Account
+                                Akun Baru
                             </button>
                         )}
                     </div>
@@ -130,7 +130,7 @@ export default function ChartOfAccountsPage() {
                             <Search size={18} style={{ position: 'absolute', left: 12, top: 11, color: 'var(--text-muted)' }} />
                             <input
                                 type="text"
-                                placeholder="Search accounts..."
+                                placeholder="Cari akun..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 style={{ paddingLeft: 42, width: '100%' }}
@@ -138,10 +138,10 @@ export default function ChartOfAccountsPage() {
                         </div>
                         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                             <button className="btn btn-secondary btn-sm" onClick={expandAll}>
-                                <ChevronDown size={16} /> Expand All
+                                <ChevronDown size={16} /> Buka Semua
                             </button>
                             <button className="btn btn-secondary btn-sm" onClick={collapseAll}>
-                                <ChevronRight size={16} /> Collapse All
+                                <ChevronRight size={16} /> Tutup Semua
                             </button>
                         </div>
                     </div>
@@ -153,21 +153,21 @@ export default function ChartOfAccountsPage() {
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Loader2 className="animate-spin" size={32} />
                             <p style={{ marginTop: 'var(--space-2)', color: 'var(--text-muted)' }}>
-                                Loading accounts...
+                                Memuat akun...
                             </p>
                         </div>
                     ) : !accounts || accounts.length === 0 ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <BookOpen size={48} style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-2)' }} />
-                            <p style={{ color: 'var(--text-muted)' }}>No accounts found</p>
+                            <p style={{ color: 'var(--text-muted)' }}>Tidak ada akun ditemukan</p>
                         </div>
                     ) : (
                         <table>
                             <thead>
                                 <tr>
-                                    <th style={{ width: 140 }}>Code</th>
-                                    <th>Account Name</th>
-                                    <th style={{ width: 120 }}>Type</th>
+                                    <th style={{ width: 140 }}>Kode</th>
+                                    <th>Nama Akun</th>
+                                    <th style={{ width: 120 }}>Tipe</th>
                                     <th style={{ width: 80, textAlign: 'center' }}>Header</th>
                                     <th style={{ width: 80, textAlign: 'center' }}>Status</th>
                                 </tr>
@@ -309,7 +309,7 @@ function AccountRow({
             </td>
             <td style={{ textAlign: 'center' }}>
                 <span className={`badge ${account.isActive ? 'badge-success' : 'badge-secondary'}`}>
-                    {account.isActive ? 'Active' : 'Inactive'}
+                    {account.isActive ? 'Aktif' : 'Tidak Aktif'}
                 </span>
             </td>
         </tr>
@@ -359,7 +359,7 @@ function CreateAccountModal({
             });
             onSuccess();
         } catch (err) {
-            alert(`Failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            alert(`Gagal: ${err instanceof Error ? err.message : 'Kesalahan tidak diketahui'}`);
         }
     };
 
@@ -367,54 +367,54 @@ function CreateAccountModal({
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
                 <div className="modal-header">
-                    <h2>Create New Account</h2>
+                    <h2>Buat Akun Baru</h2>
                     <button className="btn btn-ghost" onClick={onClose}><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                         <div>
-                            <label className="label">Account Code *</label>
+                            <label className="label">Kode Akun *</label>
                             <input
                                 type="text"
                                 required
                                 value={formData.accountCode}
                                 onChange={e => setFormData({ ...formData, accountCode: e.target.value })}
-                                placeholder="e.g. 1-1100"
+                                placeholder="cth. 1-1100"
                             />
                         </div>
                         <div>
-                            <label className="label">Account Name *</label>
+                            <label className="label">Nama Akun *</label>
                             <input
                                 type="text"
                                 required
                                 value={formData.accountName}
                                 onChange={e => setFormData({ ...formData, accountName: e.target.value })}
-                                placeholder="e.g. Cash in Bank"
+                                placeholder="cth. Kas di Bank"
                             />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                             <div>
-                                <label className="label">Account Type *</label>
+                                <label className="label">Tipe Akun *</label>
                                 <select
                                     required
                                     value={formData.accountTypeCode}
                                     onChange={e => setFormData({ ...formData, accountTypeCode: e.target.value })}
                                 >
-                                    <option value="ASSET">Asset</option>
-                                    <option value="LIABILITY">Liability</option>
-                                    <option value="EQUITY">Equity</option>
-                                    <option value="REVENUE">Revenue</option>
-                                    <option value="EXPENSE">Expense</option>
-                                    <option value="COGS">COGS</option>
+                                    <option value="ASSET">Aset</option>
+                                    <option value="LIABILITY">Kewajiban</option>
+                                    <option value="EQUITY">Ekuitas</option>
+                                    <option value="REVENUE">Pendapatan</option>
+                                    <option value="EXPENSE">Beban</option>
+                                    <option value="COGS">HPP</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="label">Parent Account</label>
+                                <label className="label">Akun Induk</label>
                                 <select
                                     value={formData.parentId}
                                     onChange={e => setFormData({ ...formData, parentId: e.target.value })}
                                 >
-                                    <option value="">None (Top Level)</option>
+                                    <option value="">Tidak Ada (Level Teratas)</option>
                                     {flatAccounts.filter(a => a.isHeader).map(a => (
                                         <option key={a.id} value={a.id}>
                                             {a.accountCode} - {a.accountName}
@@ -430,24 +430,24 @@ function CreateAccountModal({
                                     checked={formData.isHeader}
                                     onChange={e => setFormData({ ...formData, isHeader: e.target.checked })}
                                 />
-                                This is a header account (group)
+                                Ini adalah akun header (grup)
                             </label>
                         </div>
                         <div>
-                            <label className="label">Description</label>
+                            <label className="label">Deskripsi</label>
                             <textarea
                                 value={formData.description}
                                 onChange={e => setFormData({ ...formData, description: e.target.value })}
                                 rows={2}
-                                placeholder="Optional description..."
+                                placeholder="Deskripsi opsional..."
                             />
                         </div>
                     </div>
                     <div className="modal-footer">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+                        <button type="button" className="btn btn-secondary" onClick={onClose}>Batal</button>
                         <button type="submit" className="btn btn-primary" disabled={createAccount.isPending}>
                             {createAccount.isPending ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                            Create Account
+                            Buat Akun
                         </button>
                     </div>
                 </form>

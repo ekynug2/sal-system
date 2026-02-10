@@ -289,4 +289,31 @@ export const SettingsKeys = {
     APPROVAL_DISCOUNT_THRESHOLD: 'approval_discount_threshold',
     APPROVAL_ADJUSTMENT_THRESHOLD: 'approval_adjustment_threshold',
     INVOICE_FOOTER: 'invoice_footer',
+
+    // Invoice Header Settings
+    INVOICE_TEMPLATE: 'invoice_template', // 'classic' | 'modern' | 'minimal'
+    COMPANY_BANK_NAME: 'company_bank_name',
+    COMPANY_BANK_ACCOUNT: 'company_bank_account',
+    COMPANY_BANK_HOLDER: 'company_bank_holder',
+    INVOICE_SIGN_LEFT: 'invoice_sign_left', // e.g. 'Dibuat Oleh'
+    INVOICE_SIGN_RIGHT: 'invoice_sign_right', // e.g. 'Diterima Oleh'
+    INVOICE_SHOW_LOGO: 'invoice_show_logo', // 'true' | 'false'
+    INVOICE_SHOW_BANK: 'invoice_show_bank', // 'true' | 'false'
+    INVOICE_SHOW_SIGNATURE: 'invoice_show_signature', // 'true' | 'false'
+
+    // Branding
+    COMPANY_LOGO: 'company_logo', // URL or base64
+    COMPANY_LETTERHEAD: 'company_letterhead', // URL or base64
+
+    // Document Numbering Formats
+    // e.g., 'INV/{YEAR}/{MONTH}/{SEQ}' or 'INV-{YY}{MM}-{SEQ}'
+    FORMAT_SALES_INVOICE: 'format_sales_invoice',
+    FORMAT_SALES_PAYMENT: 'format_sales_payment',
+    FORMAT_SALES_CREDIT_NOTE: 'format_sales_credit_note',
+    FORMAT_PURCHASE_RECEIPT: 'format_purchase_receipt',
+    FORMAT_PURCHASE_BILL: 'format_purchase_bill',
+    FORMAT_PURCHASE_PAYMENT: 'format_purchase_payment',
+    FORMAT_INVENTORY_ADJUSTMENT: 'format_inventory_adjustment',
+    FORMAT_INVENTORY_OPNAME: 'format_inventory_opname',
+    FORMAT_JOURNAL_ENTRY: 'format_journal_entry',
 } as const;

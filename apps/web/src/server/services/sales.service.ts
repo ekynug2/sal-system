@@ -369,7 +369,7 @@ export async function createSalesInvoice(
 
         // Insert lines (Bulk)
         if (processedLines.length > 0) {
-            const lineValues: any[] = [];
+            const lineValues: (string | number | null)[] = [];
             const placeholders = processedLines.map(line => {
                 lineValues.push(
                     invoiceId,
@@ -479,7 +479,7 @@ export async function postSalesInvoice(
                 if (!stockCheck.valid) {
                     throw new SalesError(
                         ErrorCodes.SLS_INV_POST_STOCK_NEGATIVE,
-                        `Insufficient stock for ${stockCheck.insufficientItems.length} item(s)`,
+                        `Insufficient stock for: ${stockCheck.insufficientItems.map(i => i.sku).join(', ')}`,
                         409,
                         { insufficientItems: stockCheck.insufficientItems }
                     );
@@ -729,7 +729,7 @@ export async function receivePayment(
 
         // Create allocations (Bulk)
         if (input.allocations.length > 0) {
-            const allocValues: any[] = [];
+            const allocValues: (string | number | null)[] = [];
             const placeholders = input.allocations.map(alloc => {
                 allocValues.push(paymentId, alloc.invoiceId, alloc.amount);
                 return '(?, ?, ?)';
@@ -1015,7 +1015,7 @@ export async function createSalesCreditNote(
             throw new SalesError(ErrorCodes.RESOURCE_NOT_FOUND, 'Invoice not found', 404);
         }
 
-        const _invoice = invoiceRows[0];
+        // Invoice existence verified above, data not needed for credit note creation
 
         // Get tax rates for lines
         const taxRates = new Map<string, number>();

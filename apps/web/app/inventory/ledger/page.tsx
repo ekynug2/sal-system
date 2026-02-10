@@ -25,7 +25,7 @@ export default function StockLedgerPage() {
     const [page, setPage] = useState(1);
 
     // Additional filters like itemId or date range could be added
-    const [itemId, _setItemId] = useState<number | undefined>(undefined);
+    const [itemId] = useState<number | undefined>(undefined);
 
     const { data, isLoading, error } = useStockLedger({ page, limit: 20, itemId });
 
@@ -48,16 +48,16 @@ export default function StockLedgerPage() {
                 <Sidebar />
                 <main className="main-content">
                     <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                        <h3>Permission Denied</h3>
-                        <p>You do not have permission to view inventory ledger.</p>
+                        <h3>Izin Ditolak</h3>
+                        <p>Anda tidak memiliki izin untuk melihat buku besar persediaan.</p>
                     </div>
                 </main>
             </div>
         );
     }
 
-    const ledger = data?.data || [];
-    const meta = data?.meta;
+    const ledger = data || [];
+    // TODO: Re-implement pagination when API client returns meta
 
     return (
         <div className="app-layout">
@@ -65,9 +65,9 @@ export default function StockLedgerPage() {
             <main className="main-content">
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Stock Ledger</h1>
+                        <h1 className="page-title">Buku Besar Stok</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            View history of stock movements
+                            Lihat riwayat pergerakan stok
                         </p>
                     </div>
                 </div>
@@ -77,7 +77,7 @@ export default function StockLedgerPage() {
                     <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
                         {/* Placeholder for Item Select or Search */}
                         <div style={{ flex: 1, minWidth: 280, color: 'var(--text-secondary)' }}>
-                            Use filter to select specific item (Implementation pending)
+                            Gunakan filter untuk memilih barang tertentu (Implementasi tertunda)
                         </div>
                         <button className="btn btn-secondary">
                             <Filter size={18} />
@@ -91,16 +91,16 @@ export default function StockLedgerPage() {
                     {isLoading ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto' }} />
-                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Loading ledger...</p>
+                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Memuat buku besar...</p>
                         </div>
                     ) : error ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                            Failed to load ledger. Please try again.
+                            Gagal memuat buku besar. Silakan coba lagi.
                         </div>
                     ) : ledger.length === 0 ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <FileText size={48} style={{ color: 'var(--text-muted)', margin: '0 auto' }} />
-                            <h3 style={{ marginTop: 'var(--space-4)' }}>No records found</h3>
+                            <h3 style={{ marginTop: 'var(--space-4)' }}>Tidak ada catatan ditemukan</h3>
                         </div>
                     ) : (
                         <>
@@ -108,14 +108,14 @@ export default function StockLedgerPage() {
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>Date</th>
-                                            <th>Item</th>
-                                            <th>Source</th>
-                                            <th style={{ textAlign: 'right' }}>Qty Change</th>
-                                            <th style={{ textAlign: 'right' }}>Cost</th>
-                                            <th style={{ textAlign: 'right' }}>Value Change</th>
-                                            <th style={{ textAlign: 'right' }}>Balance Qty</th>
-                                            <th style={{ textAlign: 'right' }}>Balance Value</th>
+                                            <th>Tanggal</th>
+                                            <th>Barang</th>
+                                            <th>Sumber</th>
+                                            <th style={{ textAlign: 'right' }}>Perubahan Qty</th>
+                                            <th style={{ textAlign: 'right' }}>Biaya</th>
+                                            <th style={{ textAlign: 'right' }}>Perubahan Nilai</th>
+                                            <th style={{ textAlign: 'right' }}>Saldo Qty</th>
+                                            <th style={{ textAlign: 'right' }}>Saldo Nilai</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -150,8 +150,8 @@ export default function StockLedgerPage() {
                                 </table>
                             </div>
 
-                            {/* Pagination */}
-                            {meta && (
+                            {/* Pagination - TODO: Re-implement when API returns meta */}
+                            {ledger.length > 0 && (
                                 <div
                                     style={{
                                         display: 'flex',
@@ -162,8 +162,7 @@ export default function StockLedgerPage() {
                                     }}
                                 >
                                     <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                        Showing {(page - 1) * meta.limit + 1} - {Math.min(page * meta.limit, meta.total)} of{' '}
-                                        {meta.total} records
+                                        Menampilkan {ledger.length} catatan
                                     </span>
                                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                                         <button
@@ -181,12 +180,12 @@ export default function StockLedgerPage() {
                                                 fontWeight: 500,
                                             }}
                                         >
-                                            {page} / {meta.totalPages}
+                                            Halaman {page}
                                         </span>
                                         <button
                                             className="btn btn-secondary"
-                                            onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                                            disabled={page >= meta.totalPages}
+                                            onClick={() => setPage((p) => p + 1)}
+                                            disabled={ledger.length < 20}
                                         >
                                             <ChevronRight size={18} />
                                         </button>

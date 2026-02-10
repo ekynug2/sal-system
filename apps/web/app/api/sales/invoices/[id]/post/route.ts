@@ -28,7 +28,8 @@ export async function POST(request: NextRequest, context: RouteParams) {
         const body = await request.json();
         const input = PostSalesInvoiceInput.parse(body);
 
-        await postSalesInvoice(invoiceId, user.id, input.idempotencyKey);
+        // Allow posting even if stock is insufficient (negative stock allowed)
+        await postSalesInvoice(invoiceId, user.id, input.idempotencyKey, false);
 
         return successResponse({ message: 'Invoice posted successfully' });
     } catch (error) {

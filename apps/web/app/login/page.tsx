@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/ui/providers/auth-provider';
 import { CreditCard, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function LoginPage() {
     const { login, isLoading } = useAuth();
@@ -23,8 +24,15 @@ export default function LoginPage() {
 
         try {
             await login(email, password);
+            toast.success('Selamat datang kembali!', {
+                description: 'Anda berhasil masuk.',
+            });
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Login failed');
+            const errorMessage = err instanceof Error ? err.message : 'Gagal Masuk. Silakan coba lagi.';
+            setError(errorMessage);
+            toast.error('Gagal Masuk', {
+                description: errorMessage,
+            });
         } finally {
             setIsSubmitting(false);
         }
@@ -71,12 +79,15 @@ export default function LoginPage() {
                         SAL Accounting
                     </h1>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                        Sign in to your account
+                        Masuk ke akun Anda
                     </p>
                 </div>
 
                 {error && (
                     <div
+                        id="login-error"
+                        role="alert"
+                        aria-live="polite"
                         style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -89,14 +100,14 @@ export default function LoginPage() {
                             fontSize: '0.875rem',
                         }}
                     >
-                        <AlertCircle size={18} />
+                        <AlertCircle size={18} aria-hidden="true" />
                         {error}
                     </div>
                 )}
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label htmlFor="email">Email Address</label>
+                        <label htmlFor="email">Alamat Email</label>
                         <div style={{ position: 'relative' }}>
                             <Mail
                                 size={18}
@@ -107,6 +118,7 @@ export default function LoginPage() {
                                     transform: 'translateY(-50%)',
                                     color: 'var(--text-muted)',
                                 }}
+                                aria-hidden="true"
                             />
                             <input
                                 id="email"
@@ -115,13 +127,17 @@ export default function LoginPage() {
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder="admin@sal-system.local"
                                 required
+                                autoComplete="email"
+                                aria-label="Alamat Email"
+                                aria-invalid={!!error}
+                                aria-describedby={error ? "login-error" : undefined}
                                 style={{ paddingLeft: '42px' }}
                             />
                         </div>
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="password">Password</label>
+                        <label htmlFor="password">Kata Sandi</label>
                         <div style={{ position: 'relative' }}>
                             <Lock
                                 size={18}
@@ -132,6 +148,7 @@ export default function LoginPage() {
                                     transform: 'translateY(-50%)',
                                     color: 'var(--text-muted)',
                                 }}
+                                aria-hidden="true"
                             />
                             <input
                                 id="password"
@@ -140,11 +157,17 @@ export default function LoginPage() {
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="••••••••"
                                 required
+                                autoComplete="current-password"
+                                aria-label="Kata Sandi"
+                                aria-invalid={!!error}
+                                aria-describedby={error ? "login-error" : undefined}
                                 style={{ paddingLeft: '42px', paddingRight: '42px' }}
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
+                                aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+                                aria-pressed={showPassword}
                                 style={{
                                     position: 'absolute',
                                     right: '12px',
@@ -167,7 +190,7 @@ export default function LoginPage() {
                         disabled={isSubmitting || isLoading}
                         style={{ width: '100%', marginTop: 'var(--space-4)', padding: 'var(--space-4)' }}
                     >
-                        {isSubmitting ? 'Signing in...' : 'Sign In'}
+                        {isSubmitting ? 'Sedang Masuk...' : 'Masuk'}
                     </button>
                 </form>
 
@@ -181,7 +204,7 @@ export default function LoginPage() {
                         color: 'var(--text-secondary)',
                     }}
                 >
-                    <strong>Demo Credentials:</strong>
+                    <strong>Kredensial Demo:</strong>
                     <br />
                     Email: admin@sal-system.local
                     <br />
