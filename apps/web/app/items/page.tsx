@@ -27,6 +27,14 @@ import {
 import { useCreateItem } from '@/hooks/use-master-data';
 import { Permissions } from '@/shared/constants';
 
+/**
+ * Page component for managing items (barang): listing, filtering, exporting, printing, importing, and creating items.
+ *
+ * Renders an authenticated UI that gates access (redirects to login when unauthenticated), shows loading states,
+ * and conditionally exposes export/print/import/create actions based on user permissions.
+ *
+ * @returns The page's JSX element for the Items management screen.
+ */
 export default function ItemsPage() {
     const router = useRouter();
     const { user, isLoading: authLoading, hasPermission } = useAuth();
@@ -282,6 +290,12 @@ export default function ItemsPage() {
     );
 }
 
+/**
+ * Renders a modal form for creating a new item and handles submission to create the item.
+ *
+ * @param onClose - Called when the modal should be closed (e.g., user cancels or closes the dialog)
+ * @param onSuccess - Called after a new item is successfully created
+ */
 function CreateItemModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
     const createItem = useCreateItem();
     const [formData, setFormData] = useState({

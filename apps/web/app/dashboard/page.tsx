@@ -64,6 +64,14 @@ function useDashboard() {
     });
 }
 
+/**
+ * Render the main dashboard page for authenticated users.
+ *
+ * Displays KPI stat cards, recent invoices, low-stock alerts, and quick action buttons.
+ * If the user is not authenticated it redirects to the login page; while authentication is loading it shows a centered spinner.
+ *
+ * @returns The dashboard page React element containing statistics, recent activity tables/lists, and quick action controls.
+ */
 export default function DashboardPage() {
     const { user, isLoading: authLoading } = useAuth();
     const router = useRouter();
@@ -282,6 +290,16 @@ export default function DashboardPage() {
     );
 }
 
+/**
+ * Renders a dashboard statistic card showing a label, primary value, optional percentage change, and an icon.
+ *
+ * @param label - The metric label shown above the value (e.g., "Total Penjualan (Bulan Ini)")
+ * @param value - The displayed value as a preformatted string (e.g., formatted currency or number)
+ * @param change - Percentage change relative to the previous period; positive values render an "up" indicator, negative values render a "down" indicator; zero hides the change row
+ * @param icon - Icon node displayed inside the colored circular area
+ * @param color - CSS color used for the icon foreground and a translucent background (e.g., hex, rgb, or CSS color token)
+ * @returns The rendered stat card element
+ */
 function StatCard({
     label,
     value,

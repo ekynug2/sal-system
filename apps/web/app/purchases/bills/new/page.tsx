@@ -37,6 +37,13 @@ function generateId(): string {
     return Math.random().toString(36).substring(2, 9);
 }
 
+/**
+ * Page component that renders the UI for creating a new purchase bill with supplier and item selection.
+ *
+ * Manages bill header (supplier, invoice number, dates, memo), line items (add/update/remove/select item, tax), computes subtotal/tax/total, validates input, and submits the bill to create and navigate to the created bill page.
+ *
+ * @returns The React element for the create-purchase-bill page.
+ */
 export default function CreateBillPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();
@@ -332,4 +339,3 @@ export default function CreateBillPage() {
 }
 
 // Add CSS classes inline for this file or update global CSS
-

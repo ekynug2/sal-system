@@ -1,4 +1,3 @@
-
 import { NextRequest } from 'next/server';
 import { successResponse, handleApiError } from '@/lib/api-response';
 import { getAuthUser, requirePermission } from '@/lib/auth-middleware';
@@ -7,6 +6,14 @@ import { AuditLog } from '@/shared/types';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Handle GET requests for audit logs, enforcing SETTINGS_VIEW permission and supporting pagination and filters.
+ *
+ * The endpoint accepts query parameters: `page`, `limit`, `entityType`, `action`, `from`, and `to`.
+ * Response `data` contains audit logs with camelCase fields (including `actorName` from a joined field).
+ *
+ * @returns An object with `data` (array of `AuditLog`) and `meta` containing pagination info: `page`, `limit`, `total`, and `totalPages`.
+ */
 export async function GET(request: NextRequest) {
     try {
         const { user } = await getAuthUser(request);

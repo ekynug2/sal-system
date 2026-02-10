@@ -4,6 +4,13 @@ import { Permissions } from '@/shared/constants';
 import { getSalesReport } from '@/server/services/report.service';
 import { getAuthUser, requirePermission } from '@/lib/auth-middleware';
 
+/**
+ * Handle GET requests to return a sales report for a specified date range.
+ *
+ * If `from` or `to` query parameters are not provided, the range defaults to the current month's first and last day. Requires an authenticated user with the `REPORT_SALES` permission.
+ *
+ * @returns The API response containing the sales report data for the requested or default date range.
+ */
 export async function GET(request: NextRequest) {
     try {
         const { user } = await getAuthUser(request);

@@ -7,6 +7,13 @@ import { formatCurrency, formatDate } from '@/lib/api-client';
 import { Loader2, RefreshCw, Download } from 'lucide-react';
 import Link from 'next/link';
 
+/**
+ * Renders the Accounts Payable (AP) aging report page with a date filter, refresh, and print controls.
+ *
+ * Displays supplier-level aging buckets (Current, 1–30, 31–60, 61–90, >90) and a totals row computed from all reports.
+ *
+ * @returns The React element for the AP aging report page
+ */
 export default function APAgingPage() {
     const now = new Date();
     const today = now.toISOString().split('T')[0];

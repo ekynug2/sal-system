@@ -32,6 +32,15 @@ const statusColors: Record<string, string> = {
     VOIDED: 'badge-voided',
 };
 
+/**
+ * Sales invoice detail page component that displays invoice metadata, customer info,
+ * line items, totals, and memo, and provides actions to post or print the invoice.
+ *
+ * The component redirects unauthenticated users to the login page, shows loading and
+ * error states while fetching data, and derives print header settings from application settings.
+ *
+ * @returns The JSX element rendering the sales invoice detail page
+ */
 export default function InvoiceDetailPage() {
     const router = useRouter();
     const params = useParams();

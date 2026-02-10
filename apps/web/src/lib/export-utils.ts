@@ -17,7 +17,16 @@ export interface ExportOptions {
 }
 
 /**
- * Export data to Excel file
+ * Export an array of objects to an Excel (.xlsx) file.
+ *
+ * The first row of the sheet is built from each column's `header`. Each data row is produced by applying
+ * a column's `accessor` (either a property key of the item or a function) to the corresponding item.
+ * Column widths use `col.width` when provided or default to 15. The workbook is saved as
+ * `{options.filename}.xlsx` and the worksheet name defaults to `"Sheet1"` when `options.sheetName` is not set.
+ *
+ * @param data - Array of objects to export
+ * @param columns - Column definitions; each column provides a `header`, an `accessor` (key or function), and optional `width`
+ * @param options - Export options including `filename` and optional `sheetName`
  */
 export function exportToExcel<T extends object>(
     data: T[],
@@ -57,7 +66,13 @@ export function exportToExcel<T extends object>(
 }
 
 /**
- * Export data to CSV file
+ * Generate a CSV from the provided rows and columns and trigger a file download.
+ *
+ * Builds a header row from `columns` and maps each item in `data` to a CSV row using each column's `accessor`; values containing commas or quotes are escaped. The resulting file is saved as `<options.filename>.csv`.
+ *
+ * @param data - Array of data objects to export
+ * @param columns - Column definitions (header and accessor) that determine CSV headers and cell values
+ * @param options - Export options; `options.filename` is used as the base name for the saved file
  */
 export function exportToCSV<T extends object>(
     data: T[],
@@ -96,7 +111,11 @@ export function exportToCSV<T extends object>(
 }
 
 /**
- * Parse Excel file and return data
+ * Parse an Excel file and map rows from the first worksheet to objects of type `T`.
+ *
+ * @param file - The Excel file to read (e.g., .xlsx or .xls)
+ * @param columnMapping - An object mapping Excel header names to target keys on `T`
+ * @returns An array of `T` where each element corresponds to a row from the first worksheet; values are assigned to keys according to `columnMapping`
  */
 export async function parseExcel<T>(
     file: File,
@@ -140,7 +159,14 @@ export async function parseExcel<T>(
 }
 
 /**
- * Generate Excel template for import
+ * Create and download an Excel template file with the given headers and example values.
+ *
+ * The generated workbook contains a single sheet named "Template" where the first row
+ * is the provided headers and the second row contains example values (empty when not provided).
+ * The saved file is named `{filename}_template.xlsx`.
+ *
+ * @param columns - Array of column descriptors. Each descriptor must include `header` and may include `example` used in the second row.
+ * @param filename - Base filename (without extension) used when saving the generated template.
  */
 export function generateImportTemplate(
     columns: { header: string; example?: string }[],
@@ -167,7 +193,9 @@ export function generateImportTemplate(
 }
 
 /**
- * Format currency for export
+ * Format a number as Indonesian-style decimal currency without fractional digits.
+ *
+ * @returns A string formatted with the Indonesian locale ('id-ID') using no decimal places
  */
 export function formatCurrencyForExport(value: number): string {
     return new Intl.NumberFormat('id-ID', {
@@ -178,7 +206,10 @@ export function formatCurrencyForExport(value: number): string {
 }
 
 /**
- * Format date for export
+ * Format an input date string into the Indonesian date format (dd/mm/yyyy).
+ *
+ * @param dateString - A date string parseable by JavaScript's Date constructor
+ * @returns The date formatted using the 'id-ID' locale with numeric year and two-digit month and day (dd/mm/yyyy)
  */
 export function formatDateForExport(dateString: string): string {
     const date = new Date(dateString);

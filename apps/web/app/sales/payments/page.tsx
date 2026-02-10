@@ -22,6 +22,16 @@ import {
 } from 'lucide-react';
 import { Permissions } from '@/shared/constants';
 
+/**
+ * Renders the Sales Payments page with search, filters, payments table, and pagination.
+ *
+ * Enforces authentication (redirects to /login when no user) and verifies the
+ * SALES_PAYMENT_VIEW permission (displays an access-denied card when missing).
+ * Handles loading, error, and empty states, provides an action to create/receive a payment,
+ * and exposes a temporary payment-detail view via alert.
+ *
+ * @returns The React element for the Sales Payments page.
+ */
 export default function SalesPaymentsPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

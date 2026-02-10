@@ -9,7 +9,12 @@ export interface PrintStyles {
 }
 
 /**
- * Print the content of a specific element
+ * Print the inner HTML of a DOM element identified by its id.
+ *
+ * If the element is not found, logs an error and does nothing.
+ *
+ * @param elementId - The id of the DOM element whose inner HTML will be printed
+ * @param title - Optional title to include in the printed document
  */
 export function printElement(elementId: string, title?: string): void {
     const element = document.getElementById(elementId);
@@ -22,7 +27,13 @@ export function printElement(elementId: string, title?: string): void {
 }
 
 /**
- * Print HTML content in a new window
+ * Opens a print-friendly window and prints the provided HTML content.
+ *
+ * Writes a complete HTML document into a new browser window, injects the given content, applies print styles (page size, orientation, margin), and triggers the browser print dialog. If the popup is blocked, displays an alert in Indonesian and does not attempt to print.
+ *
+ * @param htmlContent - HTML string to render inside the print window's body
+ * @param title - Optional document title for the print window (defaults to "Print")
+ * @param styles - Optional print settings; `pageSize` defaults to "A4", `orientation` defaults to "portrait", and `margin` defaults to "10mm"
  */
 export function printHTML(htmlContent: string, title?: string, styles?: PrintStyles): void {
     const printWindow = window.open('', '_blank', 'width=800,height=600');
@@ -205,8 +216,16 @@ export function printHTML(htmlContent: string, title?: string, styles?: PrintSty
 }
 
 /**
- * Generate print-ready table HTML
- */
+ * Build an HTML string for a printable table with an optional header, subtitle, timestamp, and totals row.
+ *
+ * @param data - Array of row objects to render in the table.
+ * @param columns - Column definitions. Each column must provide `header` and an `accessor` which is either a property key of the row objects or a function that returns the cell value; optional `className` is applied to both header and cell elements.
+ * @param options - Optional presentation settings:
+ *   - `title`: main title shown above the table
+ *   - `subtitle`: subtitle shown under the title
+ *   - `showTotal`: when true, a totals row is appended
+ *   - `totalColumns`: list of column accessor keys whose numeric values will be summed for the totals row
+ * @returns An HTML string containing a print header (title, subtitle, and print timestamp) and a table with THEAD, TBODY of rows, and an appended totals row when requested. Numeric totals are summed across the provided data; non-numeric values are treated as zero.
 export function generatePrintTable<T extends object>(
     data: T[],
     columns: { header: string; accessor: keyof T | ((row: T) => string | number); className?: string }[],
@@ -295,7 +314,14 @@ export interface InvoiceHeaderSettings {
 }
 
 /**
- * Build InvoiceHeaderSettings from settings record (reusable across pages)
+ * Create an InvoiceHeaderSettings object from a flat settings record.
+ *
+ * @param settings - A mapping of setting keys to string values; may be undefined.
+ * @returns An InvoiceHeaderSettings populated from `settings`, or `undefined` if `settings` is undefined.
+ *
+ * Notes:
+ * - If `invoice_template` is not provided, the `template` defaults to `'classic'`.
+ * - Visibility flags (`invoice_show_logo`, `invoice_show_bank`, `invoice_show_signature`) are interpreted as `false` only when the value is exactly `'false'`; any other value is treated as `true`.
  */
 export function buildHeaderSettings(settings: Record<string, string> | undefined): InvoiceHeaderSettings | undefined {
     if (!settings) return undefined;
@@ -321,7 +347,9 @@ export function buildHeaderSettings(settings: Record<string, string> | undefined
 }
 
 /**
- * Generate document print layout (Invoice, Bill, etc)
+ * Build a complete HTML document for printing an invoice-like document.
+ *
+ * @returns A string containing the fully assembled HTML for the printable document (header, info grid, item table, totals, optional bank/footer/signature sections, and a print timestamp)
  */
 export function generateDocumentPrint(options: {
     documentType: string;
@@ -449,7 +477,14 @@ export function generateDocumentPrint(options: {
 }
 
 /**
- * Generate header HTML based on template type
+ * Build the HTML header block for a printable document using the selected visual template.
+ *
+ * @param template - One of the header templates: `'classic'`, `'modern'`, or `'minimal'`
+ * @param companyName - The company name to display prominently in the header
+ * @param options - Document metadata; must include `documentType` (label shown in header) and `documentNo` (identifier shown where applicable)
+ * @param s - Invoice header settings providing company contact, logo, NPWP, and additional header configuration
+ * @param showLogo - When `true`, include the company logo from `s.companyLogo` if present
+ * @returns The HTML string for the composed header block ready to be injected into the printable document
  */
 function generateHeader(
     template: string,
@@ -542,6 +577,12 @@ function generateHeader(
     `;
 }
 
+/**
+ * Formats a numeric value using Indonesian locale conventions.
+ *
+ * @param value - The number to format
+ * @returns The value formatted as a string using the `id-ID` locale number separators
+ */
 function formatNumber(value: number): string {
     return new Intl.NumberFormat('id-ID').format(value);
 }

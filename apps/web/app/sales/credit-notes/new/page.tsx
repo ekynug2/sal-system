@@ -42,6 +42,11 @@ const REASON_CODES = [
     { code: 'OTHER', label: 'Lainnya' },
 ];
 
+/**
+ * Generate a short random identifier string.
+ *
+ * @returns A 7-character lowercase alphanumeric identifier created from a base-36 random value.
+ */
 function generateId(): string {
     return Math.random().toString(36).substring(2, 9);
 }
@@ -64,6 +69,16 @@ function useCreateCreditNote() {
     });
 }
 
+/**
+ * Page component for creating a new sales credit note with invoice selection, line editing, and submission.
+ *
+ * The component lets a user pick a posted sales invoice, adjust quantities for credit lines, set credit metadata
+ * (date, reason, restock flag, memo), view recalculated totals, and submit a credit note to the API. It guards
+ * access by authentication, validates required fields and line quantities before submission, and navigates to the
+ * created credit note on success.
+ *
+ * @returns A React element that renders the Create Credit Note page UI.
+ */
 export default function CreateCreditNotePage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

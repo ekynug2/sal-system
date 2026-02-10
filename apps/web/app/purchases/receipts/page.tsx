@@ -28,6 +28,11 @@ const statusColors: Record<string, string> = {
     VOIDED: 'badge-voided',
 };
 
+/**
+ * Page component that lists and manages Purchase Receipts (Penerimaan Pembelian) with filtering, basic pagination, and navigation actions.
+ *
+ * @returns A React element containing the purchase receipts page UI, including header, filters, table, empty/error/loading states, and pagination controls.
+ */
 export default function PurchaseReceiptsPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

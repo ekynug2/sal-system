@@ -20,6 +20,23 @@ interface ConfirmDialogProps {
     isLoading?: boolean;
 }
 
+/**
+ * Render a confirmation dialog with a title, description, varianted icon, and Cancel/Confirm actions.
+ *
+ * The Confirm button awaits `onConfirm` and then requests the dialog to close via `onOpenChange(false)`. When
+ * `isLoading` is true both actions are disabled and the Confirm button shows a loading state.
+ *
+ * @param open - Whether the dialog is visible
+ * @param onOpenChange - Callback to request changing the open state; called with `false` after a successful confirm
+ * @param title - Dialog title text
+ * @param description - Dialog descriptive text
+ * @param confirmLabel - Label for the confirm button (default: "Confirm")
+ * @param cancelLabel - Label for the cancel button (default: "Cancel")
+ * @param onConfirm - Handler invoked when confirming; may return a Promise and will be awaited before closing
+ * @param variant - Visual variant for icon and confirm button; one of `'danger' | 'warning' | 'info'` (default: `'danger'`)
+ * @param isLoading - When true, disables actions and shows a loading indicator on the Confirm button
+ * @returns The rendered confirmation dialog element
+ */
 export function ConfirmDialog({
     open,
     onOpenChange,

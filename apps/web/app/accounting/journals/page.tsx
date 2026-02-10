@@ -38,6 +38,13 @@ const sourceTypeLabels: Record<string, string> = {
     SALES_CREDIT_NOTE: 'Nota Kredit',
 };
 
+/**
+ * Renders the Journal Entries page which lists, filters, exports, prints, and (if permitted) allows creating manual journal entries.
+ *
+ * The component redirects unauthenticated users to `/login` and shows an auth loading spinner while authentication is in progress.
+ *
+ * @returns The rendered JSX for the Journal Entries page.
+ */
 export default function JournalEntriesPage() {
     const router = useRouter();
     const { user, isLoading: authLoading, hasPermission } = useAuth();
@@ -312,7 +319,17 @@ export default function JournalEntriesPage() {
     );
 }
 
-// Journal Detail Modal
+/**
+ * Render a modal showing detailed information for a journal entry.
+ *
+ * Displays entry metadata (entry number, date, source, optional memo), a table of line items
+ * with debit/credit amounts, and total debit/credit. Clicking the overlay or the close controls
+ * invokes `onClose`.
+ *
+ * @param entry - The journal entry to display, including lines, totals, and metadata
+ * @param onClose - Callback invoked when the modal should be closed
+ * @returns The modal element rendering the entry details
+ */
 function JournalDetailModal({ entry, onClose }: { entry: JournalEntry; onClose: () => void }) {
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -394,7 +411,15 @@ function JournalDetailModal({ entry, onClose }: { entry: JournalEntry; onClose: 
     );
 }
 
-// Create Manual Journal Entry Modal
+/**
+ * Modal form for creating a manual journal entry.
+ *
+ * Validates that total debits equal total credits and at least two valid lines exist, submits the entry via the journal creation mutation, and invokes callbacks for close and success actions. Shows inline balance status and line management controls.
+ *
+ * @param onClose - Callback invoked to close the modal
+ * @param onSuccess - Callback invoked after the journal entry is successfully created
+ * @returns A React element rendering the create-manual-journal-entry modal
+ */
 function CreateJournalModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
     const createJournal = useCreateJournalEntry();
     const { data: accounts } = useChartOfAccounts({ flat: true, activeOnly: true });

@@ -29,6 +29,22 @@ interface SelectModalProps<T> {
     onSearchChange: (val: string) => void;
 }
 
+/**
+ * Render a searchable selection modal that displays tabular data and lets the user pick an item.
+ *
+ * The modal shows a header, a debounced search input (300ms) that calls `onSearchChange`, loading and empty states, and a table of rows where clicking a row or the "Pilih" button triggers `onSelect`.
+ *
+ * @param title - Modal title text displayed in the header
+ * @param isOpen - Whether the modal is visible; when `false` the component renders `null`
+ * @param onClose - Callback invoked to close the modal (also called when backdrop is clicked)
+ * @param onSelect - Callback invoked with the selected item when a row is clicked
+ * @param data - Array of items to display in the table
+ * @param isLoading - When `true`, displays a loading state instead of the table
+ * @param columns - Column definitions (header, accessor, optional width and alignment) used to render table cells
+ * @param searchPlaceholder - Placeholder text for the search input (default: "Cari...")
+ * @param onSearchChange - Callback invoked with the current search string after a 300ms debounce
+ * @returns The modal element when open, or `null` when closed
+ */
 function SelectModal<T extends { id: number | string }>({
     title,
     isOpen,
@@ -162,7 +178,14 @@ function SelectModal<T extends { id: number | string }>({
 
 // =============================================================================
 // Specific Modals
-// =============================================================================
+/**
+ * Render a modal that lets the user search and select a customer from a list.
+ *
+ * @param isOpen - Whether the modal is visible
+ * @param onClose - Callback invoked to close the modal
+ * @param onSelect - Callback invoked with the chosen `Customer`
+ * @returns A React element that displays a searchable customer selection modal
+ */
 
 export function SelectCustomerModal({ isOpen, onClose, onSelect }: {
     isOpen: boolean;
@@ -194,6 +217,14 @@ export function SelectCustomerModal({ isOpen, onClose, onSelect }: {
     );
 }
 
+/**
+ * Modal for selecting a supplier from a searchable list.
+ *
+ * @param isOpen - Whether the modal is visible
+ * @param onClose - Callback invoked when the modal should close
+ * @param onSelect - Callback invoked with the chosen supplier
+ * @returns A modal element that displays suppliers, supports searching, and calls `onSelect` when an item is chosen
+ */
 export function SelectSupplierModal({ isOpen, onClose, onSelect }: {
     isOpen: boolean;
     onClose: () => void;
@@ -223,6 +254,14 @@ export function SelectSupplierModal({ isOpen, onClose, onSelect }: {
     );
 }
 
+/**
+ * Renders a modal for selecting an Item from a searchable list.
+ *
+ * @param isOpen - Whether the modal is visible
+ * @param onClose - Callback invoked when the modal should be closed
+ * @param onSelect - Callback invoked with the chosen `Item`
+ * @returns The configured `SelectModal` JSX element for item selection
+ */
 export function SelectItemModal({ isOpen, onClose, onSelect }: {
     isOpen: boolean;
     onClose: () => void;

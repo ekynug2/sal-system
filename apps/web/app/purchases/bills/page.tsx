@@ -23,6 +23,15 @@ import {
     ChevronRight,
 } from 'lucide-react';
 
+/**
+ * Renders the purchase bills listing page with export, print, and pagination controls.
+ *
+ * Shows a loading state, an empty-state prompt, or a table of purchase bills with actions for exporting,
+ * printing, creating new bills, and recording payments. If the user is not authenticated the component
+ * navigates to `/login`.
+ *
+ * @returns The React element for the purchase bills page.
+ */
 export default function PurchaseBillsPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

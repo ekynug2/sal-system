@@ -7,6 +7,13 @@ import { formatCurrency, formatDate } from '@/lib/api-client';
 import { Loader2, RefreshCw, Download } from 'lucide-react';
 import Link from 'next/link';
 
+/**
+ * Renders the Accounts Receivable aging report page with filters, actions, and a per-customer breakdown table.
+ *
+ * Displays a date filter (as of), refresh and print actions, loading/empty states, a per-customer aging table, and an aggregated totals row.
+ *
+ * @returns The React element for the AR aging report page.
+ */
 export default function ARAgingPage() {
     const now = new Date();
     const today = now.toISOString().split('T')[0];

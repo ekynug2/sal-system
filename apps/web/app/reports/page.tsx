@@ -11,6 +11,13 @@ import {
     ArrowRight
 } from 'lucide-react';
 
+/**
+ * Render the Reports page with grouped report cards for navigation.
+ *
+ * Displays a sidebar and a main content area that lists report groups; each group shows a title, description, and a grid of clickable report cards linking to specific report pages.
+ *
+ * @returns A React element representing the reports dashboard with grouped, navigable report cards.
+ */
 export default function ReportsPage() {
     const reportGroups = [
         {

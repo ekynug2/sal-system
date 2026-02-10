@@ -18,6 +18,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+/**
+ * Provides authentication state and actions to descendant components via AuthContext.
+ *
+ * Exposes the current `user`, `isLoading` flag, and the `login`, `logout`, and `hasPermission` helpers to any child component that consumes the context.
+ *
+ * @param children - React nodes to render inside the provider
+ * @returns The AuthContext provider element wrapping `children`
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);

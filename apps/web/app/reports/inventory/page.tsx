@@ -7,6 +7,14 @@ import { formatCurrency, formatDate } from '@/lib/api-client';
 import { Loader2, RefreshCw, Download } from 'lucide-react';
 import Link from 'next/link';
 
+/**
+ * Renders the Inventory Valuation page with controls to refresh, print, and filter the report by date.
+ *
+ * The component fetches and displays a per-item valuation table (quantity, average cost, total value),
+ * shows loading and empty states, and includes a printable view that hides interactive controls.
+ *
+ * @returns The page's JSX element containing the inventory valuation report and UI controls.
+ */
 export default function InventoryValuationPage() {
     const now = new Date();
     const today = now.toISOString().split('T')[0];

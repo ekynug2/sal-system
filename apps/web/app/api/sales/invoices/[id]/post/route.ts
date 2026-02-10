@@ -13,6 +13,13 @@ interface RouteParams {
     params: Promise<{ id: string }>;
 }
 
+/**
+ * Handles POST /sales-invoices/:id to post the specified sales invoice.
+ *
+ * @param request - The incoming HTTP request whose JSON body must conform to `PostSalesInvoiceInput`.
+ * @param context - Route parameters providing an `id` string identifying the invoice to post.
+ * @returns An API response object: on success contains `{ message: 'Invoice posted successfully' }`, on error contains standardized error information. 
+ */
 export async function POST(request: NextRequest, context: RouteParams) {
     try {
         const { user } = await getAuthUser(request);

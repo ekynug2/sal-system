@@ -19,6 +19,13 @@ import {
 } from 'lucide-react';
 import { Permissions } from '@/shared/constants';
 
+/**
+ * Render the Stock Ledger page showing inventory movement history with filters, table, and pagination.
+ *
+ * Renders loading and error states, redirects unauthenticated users to /login, and shows a permission-denied message when the user lacks the INVENTORY_VIEW permission.
+ *
+ * @returns The page's JSX element; returns `null` when redirecting unauthenticated users to the login page.
+ */
 export default function StockLedgerPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

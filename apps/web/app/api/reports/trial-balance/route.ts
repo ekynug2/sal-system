@@ -4,6 +4,12 @@ import { Permissions } from '@/shared/constants';
 import { getTrialBalance } from '@/server/services/report.service';
 import { getAuthUser, requirePermission } from '@/lib/auth-middleware';
 
+/**
+ * Handle GET requests for the trial balance report, enforcing authentication and the REPORT_TRIAL_BALANCE permission.
+ *
+ * @param request - The incoming Next.js request; may include an optional `asOf` query parameter (`YYYY-MM-DD`) to specify the report date. If omitted, today's date is used.
+ * @returns An API response containing the trial balance report object on success, or an error response produced by the API error handler.
+ */
 export async function GET(request: NextRequest) {
     try {
         const { user } = await getAuthUser(request);

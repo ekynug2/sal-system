@@ -1,4 +1,3 @@
-
 import { createPool } from 'mysql2/promise';
 
 const pool = createPool({
@@ -11,6 +10,11 @@ const pool = createPool({
     queueLimit: 0,
 });
 
+/**
+ * Create the `settings` table if it does not exist and insert a set of default settings.
+ *
+ * On success the process exits with code 0; on failure the error is logged and the process exits with code 1.
+ */
 async function main() {
     try {
         console.log('Creating settings table...');

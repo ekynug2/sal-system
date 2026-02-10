@@ -417,6 +417,13 @@ interface AdjustmentLineRow extends RowDataPacket {
     item_name?: string;
 }
 
+/**
+ * Creates a draft inventory adjustment with its lines and records an audit log.
+ *
+ * @param input - Adjustment header and line details (date, type, memo, and lines)
+ * @param userId - ID of the user creating the adjustment
+ * @returns The ID of the newly created inventory adjustment
+ */
 export async function createInventoryAdjustment(
     input: CreateInventoryAdjustmentInput,
     userId: number
@@ -552,6 +559,13 @@ export async function getInventoryAdjustment(id: number): Promise<InventoryAdjus
     };
 }
 
+/**
+ * Posts a draft inventory adjustment: applies each adjustment line to stock, records used unit costs and value deltas, marks the adjustment as POSTED, and creates an audit log.
+ *
+ * @param id - The inventory adjustment ID to post
+ * @param userId - The user ID performing the post action
+ * @throws Error if the adjustment does not exist or is not in `DRAFT` status
+ */
 export async function postInventoryAdjustment(id: number, userId: number): Promise<void> {
     return transaction(async (connection) => {
         // 1. Get header & lock
@@ -749,6 +763,13 @@ export async function getStockOpnameSession(id: number): Promise<import('../../s
     };
 }
 
+/**
+ * Creates a new stock opname session and records the current system quantities for the provided item IDs.
+ *
+ * @param input - Session data including `opnameDate`, optional `location` and `memo`, and `itemIds` to include in the session
+ * @param userId - ID of the user who creates the session
+ * @returns The ID of the newly created stock opname session
+ */
 export async function createStockOpnameSession(
     input: CreateStockOpnameInput,
     userId: number
@@ -1013,4 +1034,3 @@ export async function postStockOpname(
         return adjId;
     });
 }
-

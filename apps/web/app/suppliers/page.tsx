@@ -22,6 +22,16 @@ import {
 import { useCreateSupplier } from '@/hooks/use-master-data';
 import { Permissions } from '@/shared/constants';
 
+/**
+ * Render the Suppliers page: displays a searchable list of suppliers, handles authentication state,
+ * and provides a permission-gated "Create Supplier" modal that refetches the list on success.
+ *
+ * The component shows an auth loader while authentication is in progress and redirects to `/login`
+ * if no authenticated user is present. The "Pemasok Baru" action is displayed only when the user
+ * has the supplier create permission.
+ *
+ * @returns The rendered Suppliers page as a JSX element
+ */
 export default function SuppliersPage() {
     const router = useRouter();
     const { user, isLoading: authLoading, hasPermission } = useAuth();
@@ -149,6 +159,17 @@ export default function SuppliersPage() {
     );
 }
 
+/**
+ * Render a modal containing a form to create a new supplier.
+ *
+ * The form requires a supplier name and accepts optional contact, address, payment terms,
+ * tax code, NPWP, and notes. Submitting the form creates the supplier; onSuccess is called
+ * when creation succeeds and onClose is called to close the modal.
+ *
+ * @param onClose - Callback invoked to close the modal
+ * @param onSuccess - Callback invoked after a supplier is successfully created
+ * @returns The modal React element for creating a supplier
+ */
 function CreateSupplierModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
     const createSupplier = useCreateSupplier();
     const [formData, setFormData] = useState({

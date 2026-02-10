@@ -21,6 +21,15 @@ import { SelectSupplierModal } from '@/ui/components/select-modals';
 
 import type { Supplier } from '@/shared/types';
 
+/**
+ * Page component for recording a purchase payment.
+ *
+ * Renders a form to select a supplier, enter payment details (date, method, amount, reference, memo),
+ * view and allocate the payment across the supplier's unpaid bills (with an auto-allocation option),
+ * and submit the payment to create a purchase payment record.
+ *
+ * @returns The React element for the Create Purchase Payment page.
+ */
 export default function CreatePurchasePaymentPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

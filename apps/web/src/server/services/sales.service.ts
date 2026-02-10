@@ -264,7 +264,11 @@ async function getInvoiceLines(invoiceId: number): Promise<SalesInvoiceLine[]> {
 }
 
 /**
- * Create sales invoice (draft)
+ * Create a new sales invoice in Draft status.
+ *
+ * @param input - Invoice payload including customerId, invoiceDate, dueDate, optional currency, shippingFee, memo, shippingAddress, and `lines` (each line requires itemId, qty, unitPrice, discountRate, taxCode, and may include description and memo).
+ * @param userId - ID of the user creating the invoice.
+ * @returns The ID of the created invoice.
  */
 export async function createSalesInvoice(
     input: CreateSalesInvoiceInput,
@@ -414,7 +418,14 @@ export async function createSalesInvoice(
 }
 
 /**
- * Post sales invoice
+ * Post a draft sales invoice by finalizing inventory, creating accounting journal entries, updating customer balance, and marking the invoice as posted.
+ *
+ * @param idempotencyKey - Unique key to ensure the operation is idempotent; if a matching key exists the function returns without side effects.
+ * @param checkNegativeStock - When true, validates inventory availability and prevents posting if stock would become negative; when false, skips the availability check.
+ *
+ * @throws SalesError - `RESOURCE_NOT_FOUND` if the invoice does not exist.
+ * @throws SalesError - `SLS_INV_ALREADY_POSTED` if the invoice is not in draft status.
+ * @throws SalesError - `SLS_INV_POST_STOCK_NEGATIVE` if stock validation fails (includes `insufficientItems` details).
  */
 export async function postSalesInvoice(
     invoiceId: number,
@@ -626,7 +637,12 @@ export async function postSalesInvoice(
 }
 
 /**
- * Receive payment
+ * Records a customer payment, allocates amounts to invoices, creates accounting entries, and updates balances.
+ *
+ * @param input - Payment details including customer, received date, payment method, total amount, optional bank account, reference/memo, and allocations to invoices
+ * @param userId - ID of the user performing the operation
+ * @returns The newly created sales payment ID
+ * @throws SalesError - if any validation fails (allocation totals mismatch, allocation exceeds invoice balance), if referenced resources are not found (invoice or bank account), or if invoice status prevents allocation
  */
 export async function receivePayment(
     input: ReceivePaymentInput,
@@ -993,6 +1009,17 @@ export async function getSalesCreditNotes(params: {
     return { creditNotes, total };
 }
 
+/**
+ * Create a draft sales credit note linked to an existing invoice.
+ *
+ * Creates database records for the credit note and its lines, computes totals (subtotal, tax, grand total),
+ * and writes an audit log entry.
+ *
+ * @param input - Credit note data including `invoiceId`, `creditDate`, `lines` (each with itemId, qty, unitPrice, taxCode, optional memo), `restock`, `reasonCode`, and optional `memo`
+ * @param userId - Identifier of the user performing the creation
+ * @returns The newly created credit note ID
+ * @throws SalesError when the referenced invoice cannot be found (error code RESOURCE_NOT_FOUND)
+ */
 export async function createSalesCreditNote(
     input: CreateCreditNoteInput,
     userId: number

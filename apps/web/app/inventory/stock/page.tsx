@@ -19,6 +19,14 @@ import {
     ArrowUpDown,
 } from 'lucide-react';
 
+/**
+ * Renders the Stock On Hand page showing inventory levels, valuation, search, sorting, and export controls.
+ *
+ * Handles authentication redirect to the login page if the user is unauthenticated, displays loading, error,
+ * and empty states, computes total inventory value and low-stock counts, and provides sortable/filterable item table.
+ *
+ * @returns The React element representing the Stock On Hand inventory page.
+ */
 export default function StockOnHandPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

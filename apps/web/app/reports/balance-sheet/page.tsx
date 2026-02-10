@@ -6,6 +6,15 @@ import { useBalanceSheet } from '@/hooks/use-reports';
 import { formatCurrency, formatDate } from '@/lib/api-client';
 import { Loader2, RefreshCw, Download } from 'lucide-react';
 
+/**
+ * Renders the Balance Sheet (Neraca) page with a date filter, refresh, and print controls.
+ *
+ * Displays assets, liabilities, and equity for the selected "as of" date and shows section totals
+ * and a combined total for liabilities and equity. While data is loading a spinner is shown;
+ * when no data is available a placeholder message is displayed.
+ *
+ * @returns The page's JSX element containing the balance sheet UI.
+ */
 export default function BalanceSheetPage() {
     const now = new Date();
     const today = now.toISOString().split('T')[0];

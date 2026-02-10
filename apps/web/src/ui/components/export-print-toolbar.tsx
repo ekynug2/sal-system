@@ -21,6 +21,25 @@ interface ExportPrintToolbarProps {
     importLabel?: string;
 }
 
+/**
+ * Renders a toolbar with optional Print, Export, and Import controls.
+ *
+ * The toolbar conditionally shows a Print button, an Export dropdown (Excel/CSV), and an Import dropdown
+ * (download template and file import). Export and Import dropdowns close when an outside area is clicked.
+ *
+ * @param onPrint - Called when the Print button is clicked.
+ * @param onExportExcel - Called when the "Export to Excel" item is selected.
+ * @param onExportCSV - Called when the "Export to CSV" item is selected.
+ * @param onImport - Called with the selected file when a file is chosen from the import input.
+ * @param onDownloadTemplate - Called when the "Download Template" item is selected.
+ * @param showPrint - Show the Print button when `true` (default: `true`).
+ * @param showExport - Show the Export controls when `true` (default: `true`).
+ * @param showImport - Show the Import controls when `true` (default: `false`).
+ * @param printLabel - Label for the Print button (default: `"Cetak"`).
+ * @param exportLabel - Label for the Export toggle (default: `"Ekspor"`).
+ * @param importLabel - Label for the Import toggle (default: `"Impor"`).
+ * @returns A React element displaying the configured export/print toolbar.
+ */
 export function ExportPrintToolbar({
     onPrint,
     onExportExcel,
@@ -261,7 +280,14 @@ export function ExportPrintToolbar({
     );
 }
 
-// Simple Print Button (standalone)
+/**
+ * Renders a secondary-styled print button with a printer icon and label.
+ *
+ * @param onClick - Callback invoked when the button is pressed
+ * @param label - Text displayed next to the icon (defaults to "Cetak")
+ * @param size - Visual size of the button and icon; one of `"sm" | "md" | "lg"` (defaults to `"md"`)
+ * @returns A button element containing a printer icon and the given label
+ */
 export function PrintButton({
     onClick,
     label = 'Cetak',
@@ -286,7 +312,15 @@ export function PrintButton({
     );
 }
 
-// Simple Export Button (standalone)
+/**
+ * Renders a secondary-styled export button that shows an icon (Excel or CSV) and a label.
+ *
+ * @param onClick - Callback invoked when the button is clicked
+ * @param label - Text displayed on the button (default: "Ekspor")
+ * @param variant - Visual variant determining the icon: `"excel"` shows a spreadsheet icon, `"csv"` shows a text/file icon (default: "excel")
+ * @param size - Visual size of the button which also adjusts the icon (`"sm" | "md" | "lg"`, default: "md")
+ * @returns The button element configured to trigger `onClick` and display the variant-specific icon and label
+ */
 export function ExportButton({
     onClick,
     label = 'Ekspor',

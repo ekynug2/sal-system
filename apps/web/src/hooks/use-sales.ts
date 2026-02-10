@@ -18,7 +18,18 @@ export const salesKeys = {
     paymentList: (filters: Record<string, unknown>) => [...salesKeys.payments(), 'list', filters] as const,
 };
 
-// Hooks
+/**
+ * Fetches a list of sales invoices filtered and paginated by the provided parameters.
+ *
+ * @param params - Optional query parameters to filter or paginate the invoice list:
+ *   - page: Page number for pagination
+ *   - limit: Number of items per page
+ *   - from: Start date (inclusive) for invoice date filter, ISO string
+ *   - to: End date (inclusive) for invoice date filter, ISO string
+ *   - customerId: Filter invoices for a specific customer ID
+ *   - status: Filter invoices by status
+ * @returns The query result whose data is an array of `SalesInvoice` objects
+ */
 export function useSalesInvoices(params: {
     page?: number;
     limit?: number;
@@ -114,6 +125,16 @@ export function useReceivePayment() {
     });
 }
 
+/**
+ * Fetches a list of sales payments filtered and paginated by the provided parameters.
+ *
+ * @param params - Optional filters and pagination controls:
+ *   - page: page number (1-based)
+ *   - limit: items per page
+ *   - customerId: filter payments by customer ID
+ *   - search: full-text search string to match payments
+ * @returns An array of `SalesPayment` objects matching the provided filters.
+ */
 export function useSalesPayments(params: {
     page?: number;
     limit?: number;
@@ -126,6 +147,16 @@ export function useSalesPayments(params: {
     });
 }
 
+/**
+ * Fetches a list of sales credit notes with optional pagination and filters.
+ *
+ * @param params - Query parameters for listing credit notes
+ * @param params.page - Page number for pagination
+ * @param params.limit - Number of items per page
+ * @param params.customerId - Filter by customer id
+ * @param params.status - Filter by credit note status
+ * @returns The query result containing an array of `SalesCreditNote` objects
+ */
 export function useSalesCreditNotes(params: {
     page?: number;
     limit?: number;

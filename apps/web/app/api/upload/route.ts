@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { errorResponse, successResponse } from '@/lib/api-response';
 import { getAuthUser } from '@/lib/auth-middleware';
@@ -7,6 +6,11 @@ import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Authenticate the request, validate and save an uploaded PNG/JPG image, and return its public URL.
+ *
+ * @returns A response containing the saved file's public URL (`{ url: string }`) on success; otherwise an error response with a status code and an error identifier.
+ */
 export async function POST(request: NextRequest) {
     try {
         const { user } = await getAuthUser(request);

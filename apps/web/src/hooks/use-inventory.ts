@@ -29,6 +29,18 @@ export function useStockOnHand(categoryId?: number) {
     });
 }
 
+/**
+ * Fetches inventory ledger entries with optional filters and pagination.
+ *
+ * @param params - Query filters and pagination options
+ * @param params.page - Page number for paginated results
+ * @param params.limit - Number of items per page
+ * @param params.from - Start date (inclusive) filter in ISO format
+ * @param params.to - End date (inclusive) filter in ISO format
+ * @param params.itemId - Filter by specific item ID
+ * @param params.sourceType - Filter by source type string
+ * @returns The query result whose `data` is an array of `StockLedgerEntry` matching the provided filters
+ */
 export function useStockLedger(params: {
     page?: number;
     limit?: number;
@@ -43,6 +55,14 @@ export function useStockLedger(params: {
     });
 }
 
+/**
+ * Fetches a list of inventory adjustments with optional pagination.
+ *
+ * @param params - Pagination options for the request
+ * @param params.page - Page number to retrieve (1-based)
+ * @param params.limit - Number of items per page
+ * @returns An array of InventoryAdjustment objects
+ */
 export function useInventoryAdjustments(params: {
     page?: number;
     limit?: number;
@@ -97,6 +117,14 @@ export function usePostAdjustment() {
     });
 }
 
+/**
+ * Provides a React Query that fetches stock opname (inventory count) sessions.
+ *
+ * @param params - Optional pagination parameters.
+ * @param params.page - Page number to fetch.
+ * @param params.limit - Number of items per page.
+ * @returns The query result whose `data` is an array of `StockOpnameSession` objects.
+ */
 export function useStockOpnameSessions(params: {
     page?: number;
     limit?: number;
@@ -107,6 +135,14 @@ export function useStockOpnameSessions(params: {
     });
 }
 
+/**
+ * Fetches a single stock opname session by ID.
+ *
+ * The query is enabled only when `id` is truthy.
+ *
+ * @param id - The opname session's identifier
+ * @returns The query result containing the fetched StockOpnameSession when available
+ */
 export function useStockOpnameSession(id: number) {
     return useQuery({
         queryKey: inventoryKeys.opnameDetail(id),
@@ -122,6 +158,11 @@ export interface CreateOpnameSessionInput {
     itemIds: number[];
 }
 
+/**
+ * Provides a mutation hook to create a stock opname (inventory count) session.
+ *
+ * @returns A React Query mutation object that, when executed with a `CreateOpnameSessionInput`, posts a new opname session and invalidates the opname list cache on success.
+ */
 export function useCreateStockOpnameSession() {
     const queryClient = useQueryClient();
 
@@ -142,6 +183,14 @@ export interface UpdateOpnameItemsInput {
     }[];
 }
 
+/**
+ * Creates a mutation hook to update the counted items of a stock opname session.
+ *
+ * The mutation sends the provided items to the opname items endpoint and, on success,
+ * invalidates the opname detail cache for the session so fresh data is refetched.
+ *
+ * @returns A React Query mutation object for updating opname items. The mutation expects an `UpdateOpnameItemsInput` object with `id` and `items`.
+ */
 export function useUpdateOpnameItems() {
     const queryClient = useQueryClient();
 
@@ -154,6 +203,11 @@ export function useUpdateOpnameItems() {
     });
 }
 
+/**
+ * Creates a mutation hook to submit a stock opname session by ID.
+ *
+ * @returns The mutation object. When executed with an `id`, it submits that opname session and invalidates the opname detail and opname list caches.
+ */
 export function useSubmitOpnameSession() {
     const queryClient = useQueryClient();
 
@@ -166,6 +220,11 @@ export function useSubmitOpnameSession() {
     });
 }
 
+/**
+ * Creates a mutation that posts (finalizes) a stock opname session and refreshes related opname caches on success.
+ *
+ * @returns A mutation object which, when executed with an opname session `id`, posts that session and invalidates the opname detail and opname list query caches on success.
+ */
 export function usePostOpnameSession() {
     const queryClient = useQueryClient();
 

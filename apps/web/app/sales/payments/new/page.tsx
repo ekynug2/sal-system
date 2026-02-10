@@ -27,6 +27,13 @@ const PAYMENT_METHODS = [
     { id: 'OTHER', label: 'Lainnya' },
 ];
 
+/**
+ * Renders the "Receive Payment" page for recording a customer payment, allocating it to unpaid invoices, and submitting the payment.
+ *
+ * The component enforces authentication (redirects to /login when unauthenticated), lets the user select a customer, enter payment details, auto- or manually allocate the payment across that customer's unpaid invoices, and submit the payment to the backend.
+ *
+ * @returns The React element for the Receive Payment page.
+ */
 export default function ReceivePaymentPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

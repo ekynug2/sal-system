@@ -43,6 +43,11 @@ const TAX_CODES = [
     { code: 'EXEMPT', label: 'Bebas Pajak', rate: 0 },
 ];
 
+/**
+ * Generate a short random alphanumeric identifier.
+ *
+ * @returns A 7-character lowercase alphanumeric string suitable for use as a short identifier
+ */
 function generateId(): string {
     return Math.random().toString(36).substring(2, 9);
 }
@@ -64,6 +69,16 @@ function useCreateReceipt() {
     });
 }
 
+/**
+ * Renders the "Create Purchase Receipt" page and manages state for composing and submitting a new purchase receipt.
+ *
+ * This component provides UI and state for selecting a supplier and items (via modals), editing receipt header fields (date, reference, memo),
+ * managing receipt line items (quantity, unit cost, tax code, per-line memo), calculating totals (subtotal, tax, grand total),
+ * and submitting the composed receipt to the backend. It validates that a supplier is selected and at least one valid line exists before submission,
+ * navigates to the created receipt on success, and surfaces errors via alerts.
+ *
+ * @returns The page component that renders the create-purchase-receipt form and related modals.
+ */
 export default function CreatePurchaseReceiptPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

@@ -6,6 +6,13 @@ import { usePnLReport } from '@/hooks/use-reports';
 import { formatCurrency, formatDate } from '@/lib/api-client';
 import { Loader2, RefreshCw, Download } from 'lucide-react';
 
+/**
+ * Renders the Profit & Loss (Laba & Rugi) page with date filters, refresh and print controls, and a detailed P&L breakdown.
+ *
+ * The component initializes the date range to the current month, fetches a P&L report for the selected range, and displays loading, empty, or detailed report states. When data is available it lists income, cost of goods sold, expenses, and shows subtotals, gross profit, and net income. The UI includes buttons to refetch the report and to print the page.
+ *
+ * @returns The React element for the Profit & Loss page.
+ */
 export default function ProfitLossPage() {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];

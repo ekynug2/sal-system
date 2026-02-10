@@ -204,7 +204,13 @@ export async function getPurchaseBill(id: number): Promise<PurchaseBill | null> 
 
 // -----------------------------------------------------------------------------
 // Write Operations
-// -----------------------------------------------------------------------------
+/**
+ * Creates a purchase bill and its line items in the database, computing line subtotals, taxes, and grand total, generating a bill number, and recording an audit entry.
+ *
+ * @param input - Purchase bill data including supplier, invoice/due dates, optional memo, and an array of line items
+ * @param userId - ID of the user performing the operation (used for created_by/updated_by and audit)
+ * @returns The ID of the newly created purchase bill
+ */
 
 export async function createPurchaseBill(
     input: CreatePurchaseBillInput,
@@ -464,6 +470,14 @@ export interface PayBillInput {
     memo?: string;
 }
 
+/**
+ * Create a supplier payment, allocate amounts to one or more bills, post corresponding journal entries, update bill statuses, and return the created payment ID.
+ *
+ * @param input - Payment details including supplier, payment date, total amount, optional bank account, reference/memo, and allocations per bill
+ * @param userId - ID of the user performing the payment
+ * @returns The ID of the newly created payment record
+ * @throws PurchaseError - If a referenced bill or bank account is not found, if an allocation exceeds a bill's remaining balance, if total allocations do not match the payment amount, or if a bill is not in a payable status
+ */
 export async function createPurchasePayment(
     input: PayBillInput,
     userId: number
@@ -971,4 +985,3 @@ export async function postPurchaseReceipt(
         });
     });
 }
-

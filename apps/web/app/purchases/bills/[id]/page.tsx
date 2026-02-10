@@ -21,6 +21,12 @@ import {
     Truck,
 } from 'lucide-react';
 
+/**
+ * Render the purchase bill detail page for a given bill id.
+ *
+ * @param params - A Promise that resolves to the route params object containing the bill's `id` string.
+ * @returns The React element that displays bill details, item lines, totals, supplier information, and related actions.
+ */
 export default function PurchaseBillDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: idString } = use(params);
     const id = Number(idString);
@@ -192,6 +198,15 @@ function LoadingScreen() {
     );
 }
 
+/**
+ * Renders an error view shown when a purchase bill cannot be found.
+ *
+ * Displays a centered card with an alert icon, a "Tagihan Tidak Ditemukan" message,
+ * and a button that navigates back to the purchases bills list.
+ *
+ * @param router - Navigation object with a `push(url)` method used to navigate to another route
+ * @returns The error screen UI for the missing bill case
+ */
 function ErrorScreen({ router }: { router: { push: (url: string) => void } }) {
     return (
         <div className="app-layout">
