@@ -20,6 +20,15 @@ import {
     ShieldCheck,
 } from 'lucide-react';
 
+/**
+ * Render the Inventory Adjustment Detail page for the adjustment identified by the route `id`.
+ *
+ * Displays adjustment header (number and status), line items, summary sidebar, and a post action that
+ * prompts for confirmation and attempts to post the adjustment. Redirects to /login if the user is not authenticated.
+ *
+ * @param params - A promise resolving to an object containing the route `id` as a string
+ * @returns A React element showing the adjustment details, actions, and summary
+ */
 export default function AdjustmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: idString } = use(params);
     const id = Number(idString);

@@ -7,6 +7,11 @@
 
 import { Toaster } from 'sonner';
 
+/**
+ * Provides a configured Sonner Toaster for application-wide toast notifications.
+ *
+ * @returns A React element rendering a Toaster positioned top-right with rich colors, a close button, 4000ms duration, and custom toast styles (CSS-variable based background, text color, border, radius, shadow) plus the `toast-item` class.
+ */
 export function ToastProvider() {
     return (
         <Toaster

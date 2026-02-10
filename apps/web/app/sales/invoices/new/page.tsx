@@ -47,6 +47,14 @@ function generateId(): string {
     return Math.random().toString(36).substring(2, 9);
 }
 
+/**
+ * Render the Create Invoice page UI and handle creating a new sales invoice.
+ *
+ * Manages master data loading (customers and items), invoice form state (customer, dates, lines, memo),
+ * line item selection via modals, totals calculation, and submission of a new invoice to the API.
+ *
+ * @returns The rendered React element for the Create Invoice page
+ */
 export default function CreateInvoicePage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

@@ -28,6 +28,18 @@ const statusColors: Record<string, string> = {
     VOIDED: 'badge-voided',
 };
 
+/**
+ * Render the Sales Credit Notes page, including authentication checks, permission gating,
+ * filters, list table, and client-side pagination controls.
+ *
+ * Shows a full-page loader while authentication is loading, redirects unauthenticated users
+ * to the login page, and displays an access-denied message when the user lacks view permission.
+ * When authorized, presents search and status filters, a table of credit notes with formatted
+ * dates and amounts, status badges, actions to view details or create a new credit note, and
+ * simple Prev/Next pagination based on the fetched page size.
+ *
+ * @returns The component's JSX element representing the Sales Credit Notes page.
+ */
 export default function SalesCreditNotesPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

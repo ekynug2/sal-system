@@ -114,6 +114,15 @@ const navItems: NavItem[] = [
     },
 ];
 
+/**
+ * Render the application's left-side navigation with permission-aware items, collapsible groups, and user actions.
+ *
+ * Filters navigation entries based on the current user's permissions, groups items into the "Menu Utama", "Data Master",
+ * and "Keuangan" sections, supports expanding/collapsing parent items with children, and displays the current user's
+ * avatar, primary role, and a logout control.
+ *
+ * @returns The sidebar JSX element containing filtered navigation sections, expandable groups, user info, and a logout button.
+ */
 export function Sidebar() {
     const pathname = usePathname();
     const { user, logout, hasPermission } = useAuth();

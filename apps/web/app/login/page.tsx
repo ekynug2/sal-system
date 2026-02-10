@@ -9,6 +9,13 @@ import { useAuth } from '@/ui/providers/auth-provider';
 import { CreditCard, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
+/**
+ * Render the SAL Accounting login page with an email/password form, password visibility toggle, and demo credentials.
+ *
+ * Handles user input and submission via the authentication provider; on success or failure it displays localized toast notifications and shows an inline accessible error message when present.
+ *
+ * @returns A JSX element representing the login page UI.
+ */
 export default function LoginPage() {
     const { login, isLoading } = useAuth();
     const [email, setEmail] = useState('');

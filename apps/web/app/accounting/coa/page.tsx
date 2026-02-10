@@ -43,6 +43,13 @@ const typeLabels: Record<string, string> = {
     COGS: 'HPP',
 };
 
+/**
+ * Renders the Chart of Accounts page with search, hierarchical tree view, and account creation UI.
+ *
+ * Displays an authentication loading state, redirects unauthenticated users to the login page, and fetches accounts either as a flat list when searching or as a tree for normal view. Provides controls to expand/collapse the tree, a permission-guarded "Akun Baru" button to open the create-account modal, and UI states for loading and empty results.
+ *
+ * @returns The page's React element containing the chart of accounts layout and associated interactive controls.
+ */
 export default function ChartOfAccountsPage() {
     const router = useRouter();
     const { user, isLoading: authLoading, hasPermission } = useAuth();
@@ -248,7 +255,18 @@ function AccountTree({
     );
 }
 
-// Account Row Component
+/**
+ * Render a table row for a chart-of-account entry with indentation, icons, badges, and expand/collapse control.
+ *
+ * Renders account code, name (with header/file icon), account type badge, header indicator, and active status badge.
+ *
+ * @param account - The chart of account object to display
+ * @param level - Nesting level used to indent the row and apply a subtle background tint
+ * @param expanded - Whether the node is currently expanded (affects the chevron icon)
+ * @param hasChildren - Whether the account has child nodes (controls display of the expand/collapse control)
+ * @param onToggle - Callback invoked when the expand/collapse control is clicked
+ * @returns A JSX element representing the account's table row
+ */
 function AccountRow({
     account,
     level,
@@ -316,7 +334,16 @@ function AccountRow({
     );
 }
 
-// Create Account Modal
+/**
+ * Renders a modal form for creating a new chart-of-account entry.
+ *
+ * Renders form fields for code, name, account type, optional parent (populated from `accounts`), header flag, and description; submits data via the create-account hook and invokes callbacks on close or successful creation.
+ *
+ * @param accounts - Hierarchical list of existing accounts used to populate the "parent account" dropdown (flattened internally).
+ * @param onClose - Callback invoked when the modal is dismissed without creating an account.
+ * @param onSuccess - Callback invoked after an account is successfully created.
+ * @returns The modal JSX for creating a new account.
+ */
 function CreateAccountModal({
     accounts,
     onClose,

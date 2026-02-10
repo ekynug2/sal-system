@@ -1,4 +1,3 @@
-
 import { NextRequest } from 'next/server';
 import { getAuthUser, requirePermission } from '@/lib/auth-middleware';
 import { successResponse, handleApiError } from '@/lib/api-response';
@@ -7,6 +6,13 @@ import { transaction, executeTx, queryTx } from '@/server/db';
 import * as XLSX from 'xlsx';
 import { RowDataPacket } from 'mysql2';
 
+/**
+ * Handles POST requests to bulk-import items from an uploaded Excel file.
+ *
+ * Processes the first worksheet of the uploaded file, validates and inserts each row as a new item inside a single database transaction, and aggregates import results.
+ *
+ * @returns An object with `success` boolean, a `message` summarizing counts of successful and failed imports, and an `errors` array (up to 100 entries) containing per-row failure details.
+ */
 export async function POST(request: NextRequest) {
     try {
         const { user } = await getAuthUser(request);

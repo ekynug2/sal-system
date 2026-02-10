@@ -58,7 +58,17 @@ export function useCreateAccount() {
 
 // -----------------------------------------------------------------------------
 // Journal Entry Hooks
-// -----------------------------------------------------------------------------
+/**
+ * Fetches journal entries using optional date, source-type filters, and pagination.
+ *
+ * @param params - Optional filters and pagination for the query.
+ *   - from: ISO date string for the start of the date range (inclusive).
+ *   - to: ISO date string for the end of the date range (inclusive).
+ *   - sourceType: Filter by journal source type.
+ *   - page: Page number for paginated results.
+ *   - limit: Number of items per page.
+ * @returns The React Query result containing an array of `JournalEntry` objects matching the provided filters.
+ */
 
 export function useJournalEntries(params: {
     from?: string;

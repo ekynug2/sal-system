@@ -16,7 +16,17 @@ export const purchaseKeys = {
     billDetail: (id: number) => [...purchaseKeys.bills(), 'detail', id] as const,
 };
 
-// Hooks
+/**
+ * Fetches purchase bills using optional pagination and filter parameters.
+ *
+ * @param params - Query options and filters
+ * @param params.page - Page number for paginated results
+ * @param params.limit - Number of items per page
+ * @param params.supplierId - Filter by supplier ID
+ * @param params.status - Filter by bill status
+ * @param params.search - Full-text search term to filter bills
+ * @returns An array of `PurchaseBill` objects matching the provided filters
+ */
 export function usePurchaseBills(params: {
     page?: number;
     limit?: number;
@@ -108,6 +118,16 @@ export function useCreatePurchasePayment() {
     });
 }
 
+/**
+ * Fetches supplier payments using optional pagination and filter parameters.
+ *
+ * @param params - Optional query parameters to filter and paginate results:
+ *   - `page`: page number for pagination
+ *   - `limit`: number of items per page
+ *   - `supplierId`: filter payments for a specific supplier
+ *   - `search`: text search filter
+ * @returns The React Query result containing an array of `PurchasePayment` items.
+ */
 export function usePurchasePayments(params: {
     page?: number;
     limit?: number;
@@ -120,6 +140,16 @@ export function usePurchasePayments(params: {
     });
 }
 
+/**
+ * Fetches purchase receipts using optional pagination and filter parameters.
+ *
+ * @param params - Query options:
+ *   - page: page number to retrieve
+ *   - limit: items per page
+ *   - supplierId: filter receipts by supplier ID
+ *   - status: filter receipts by status
+ * @returns An array of PurchaseReceipt objects matching the provided parameters
+ */
 export function usePurchaseReceipts(params: {
     page?: number;
     limit?: number;
@@ -131,4 +161,3 @@ export function usePurchaseReceipts(params: {
         queryFn: () => apiGet<PurchaseReceipt[]>('/purchases/receipts', params),
     });
 }
-

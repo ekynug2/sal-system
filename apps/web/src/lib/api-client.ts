@@ -50,6 +50,13 @@ export async function apiGet<T>(endpoint: string, params?: Record<string, string
     return handleResponse<T>(response);
 }
 
+/**
+ * Send a POST request to the API base with an optional JSON body and return the parsed response.
+ *
+ * @param endpoint - Path appended to the API base URL
+ * @param body - Optional value to be JSON-serialized as the request body
+ * @returns The response payload parsed as type `T`
+ */
 export async function apiPost<T>(endpoint: string, body?: unknown): Promise<T> {
     const response = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
@@ -59,6 +66,13 @@ export async function apiPost<T>(endpoint: string, body?: unknown): Promise<T> {
     return handleResponse<T>(response);
 }
 
+/**
+ * Sends a multipart/form-data POST request to the API and returns the parsed response.
+ *
+ * @param endpoint - The API path appended to the configured API base URL
+ * @param formData - The FormData instance to send as the request body
+ * @returns The parsed response body as `T`
+ */
 export async function apiPostMultipart<T>(endpoint: string, formData: FormData): Promise<T> {
     const response = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
@@ -67,6 +81,13 @@ export async function apiPostMultipart<T>(endpoint: string, formData: FormData):
     return handleResponse<T>(response);
 }
 
+/**
+ * Sends a PUT request to the API base URL appended with the provided endpoint, using an optional JSON body.
+ *
+ * @param endpoint - The path appended to the API base.
+ * @param body - Optional payload to be sent as JSON in the request body.
+ * @returns The response data parsed from JSON, typed as `T`.
+ */
 export async function apiPut<T>(endpoint: string, body?: unknown): Promise<T> {
     const response = await fetch(`${API_BASE}${endpoint}`, {
         method: 'PUT',

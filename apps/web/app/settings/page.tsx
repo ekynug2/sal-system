@@ -14,6 +14,15 @@ import { useEffect } from 'react';
 
 type Tab = 'GENERAL' | 'AUDIT_LOGS';
 
+/**
+ * Render the application settings page with a two-tab interface for general settings and audit logs.
+ *
+ * The page provides a sidebar, a header titled "Pengaturan", and tab navigation that switches
+ * between the GENERAL tab (renders GeneralSettings) and the AUDIT_LOGS tab (renders AuditLogViewer).
+ * The default active tab is `AUDIT_LOGS`.
+ *
+ * @returns The rendered settings page JSX including sidebar, header, tab controls, and the active tab content.
+ */
 export default function SettingsPage() {
     const [activeTab, setActiveTab] = useState<Tab>('AUDIT_LOGS');
 
@@ -65,6 +74,13 @@ export default function SettingsPage() {
     );
 }
 
+/**
+ * Renders the General Settings form for managing company information, branding, invoice header, and document-numbering formats.
+ *
+ * The component loads current settings, provides live previews for logo, letterhead, and invoice templates, validates and accepts image uploads (PNG/JPG ≤ 2MB), uploads new files when saving, and persists updated settings. It displays loading and upload states and shows success/error toasts.
+ *
+ * @returns The settings form UI for editing and saving application-wide general settings.
+ */
 function GeneralSettings() {
     const { data: settings, isLoading } = useSettings();
     const updateSettings = useUpdateSettings();
@@ -485,6 +501,14 @@ function GeneralSettings() {
     );
 }
 
+/**
+ * Render a paginated audit log viewer showing date/time, user, action, entity, and detail columns.
+ *
+ * Displays a loading indicator while logs load, an empty-state message when no logs exist,
+ * and a table of logs with color-coded action badges and simple pagination controls.
+ *
+ * @returns The JSX element that renders the audit log viewer UI, including loading, empty, table, and pagination states.
+ */
 function AuditLogViewer() {
     const [page, setPage] = useState(1);
     const limit = 20;
@@ -600,4 +624,3 @@ function AuditLogViewer() {
         </div>
     );
 }
-

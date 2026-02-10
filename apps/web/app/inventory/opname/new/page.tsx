@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -20,6 +19,16 @@ import {
 import { Permissions } from '@/shared/constants';
 import { toast } from 'sonner';
 
+/**
+ * Page component that renders the "Sesi Stok Opname Baru" UI and manages creating a stock opname session.
+ *
+ * Renders a form for opname date, optional location, and memo; allows selecting and removing items to be counted;
+ * prevents duplicate items; validates that at least one item is selected; submits a create-session mutation and
+ * navigates to the created session on success. If the current user lacks the INVENTORY_OPNAME_CREATE permission,
+ * displays an access-denied view instead of the form.
+ *
+ * @returns The page's JSX element that provides the new stock opname session interface.
+ */
 export default function NewStockOpnamePage() {
     const router = useRouter();
     const { user } = useAuth();

@@ -25,6 +25,13 @@ import {
 import { useCreateCustomer } from '@/hooks/use-master-data';
 import { Permissions } from '@/shared/constants';
 
+/**
+ * Page component that displays and manages the customers list, including search, export, print, import template download, and creation modal.
+ *
+ * The component enforces authentication (redirects to /login if unauthenticated), shows a loading state while auth or data are loading, and conditionally exposes create/export/import actions based on user permissions and data presence.
+ *
+ * @returns The React element for the Customers page.
+ */
 export default function CustomersPage() {
     const router = useRouter();
     const { user, isLoading: authLoading, hasPermission } = useAuth();
@@ -227,6 +234,13 @@ export default function CustomersPage() {
     );
 }
 
+/**
+ * Modal dialog for entering a new customer's details and submitting them to create a customer.
+ *
+ * @param onClose - Callback invoked when the modal is dismissed without creating a customer
+ * @param onSuccess - Callback invoked after a customer is successfully created
+ * @returns The modal JSX element containing the customer creation form
+ */
 function CreateCustomerModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
     const createCustomer = useCreateCustomer();
     const [formData, setFormData] = useState({

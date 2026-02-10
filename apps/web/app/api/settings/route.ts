@@ -1,4 +1,3 @@
-
 import { NextRequest } from 'next/server';
 import { successResponse, handleApiError, errorResponse } from '@/lib/api-response';
 import { getAuthUser, requirePermission } from '@/lib/auth-middleware';
@@ -12,6 +11,11 @@ const updateSettingsSchema = z.object({
     settings: z.record(z.string(), z.string()),
 });
 
+/**
+ * Handle GET requests to fetch the current application settings after authenticating the requester and enforcing view permission.
+ *
+ * @returns An API response containing the settings as a map of string keys to string values, or an error response if authentication, permission checks, or retrieval fail.
+ */
 export async function GET(request: NextRequest) {
     try {
         const { user } = await getAuthUser(request);
@@ -24,6 +28,13 @@ export async function GET(request: NextRequest) {
     }
 }
 
+/**
+ * Update application settings using the provided key/value map, restricting changes to allowed setting keys.
+ *
+ * Validates and filters the incoming settings payload, persists any allowed keys, and returns a confirmation on success.
+ *
+ * @returns `successResponse` containing `{ message: 'Settings updated successfully' }` on success; `errorResponse` with code `'VALIDATION_ERROR'` if no valid settings were provided; otherwise the error response produced by the API error handler.
+ */
 export async function PUT(request: NextRequest) {
     try {
         const { user } = await getAuthUser(request);

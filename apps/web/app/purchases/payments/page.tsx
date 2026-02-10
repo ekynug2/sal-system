@@ -22,6 +22,13 @@ import {
 } from 'lucide-react';
 import { Permissions } from '@/shared/constants';
 
+/**
+ * Renders the "Pembayaran Pembelian" page, providing a searchable and paginated list of purchase payments with controls to create or view payments.
+ *
+ * The component handles authentication and permission gating, and displays loading, error, and empty states as needed.
+ *
+ * @returns The page's JSX element containing the layout, filters, payments table, and pagination controls.
+ */
 export default function PurchasePaymentsPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

@@ -6,6 +6,11 @@ import { useSalesReport } from '@/hooks/use-reports';
 import { formatCurrency, formatDate } from '@/lib/api-client';
 import { Loader2, RefreshCw, Download } from 'lucide-react';
 
+/**
+ * Render the sales report page with date-range filters, refresh and print actions, and a summarized sales overview.
+ *
+ * @returns The React element for the sales report page, containing controls for selecting a date range, buttons to refresh and print, and a summary of sales metrics (total sales, invoice count, total COGS, and gross profit).
+ */
 export default function SalesReportPage() {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];

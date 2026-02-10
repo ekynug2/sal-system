@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, use } from 'react';
@@ -34,6 +33,12 @@ const statusColors: Record<string, string> = {
     CANCELLED: 'badge-voided',
 };
 
+/**
+ * Displays and manages a stock opname session detail page, including session metadata, an items table with editable counted quantities and notes, and actions to save progress, submit the session, or post inventory adjustments.
+ *
+ * @param params - A promise resolving to route parameters; must include `id` (string) identifying the opname session.
+ * @returns The React element for the stock opname detail page with loading, error, and interactive editing states.
+ */
 export default function StockOpnameDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const sessionId = parseInt(id);

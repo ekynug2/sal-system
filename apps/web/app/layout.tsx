@@ -18,6 +18,12 @@ export const metadata: Metadata = {
   keywords: ["akuntansi", "faktur", "inventaris", "F&B", "pemasok"],
 };
 
+/**
+ * Root layout component that provides the HTML root and global application context.
+ *
+ * @param children - The page or app content to render inside the layout
+ * @returns The HTML element tree with the Lato font applied and children wrapped by ErrorBoundary, QueryProvider, AuthProvider, and a sibling ToastProvider
+ */
 export default function RootLayout({
   children,
 }: Readonly<{

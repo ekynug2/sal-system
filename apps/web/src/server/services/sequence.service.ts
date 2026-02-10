@@ -32,7 +32,13 @@ interface SequenceRow extends RowDataPacket {
 }
 
 /**
- * Generate next number for a sequence (within transaction)
+ * Produce the next formatted identifier for the given sequence key using the provided transactional DB connection.
+ *
+ * The function locks the sequence row, increments or resets the stored counter according to its reset policy, and returns the resulting identifier. If a custom format setting exists for the sequence it is applied by replacing the placeholders `{YEAR}`, `{YY}`, `{MONTH}`, `{MM}`, and `{SEQ}`; otherwise the value is formed as `prefix + zero-padded-number + suffix`, with yearly/monthly date fragments appended to the prefix when applicable.
+ *
+ * @param sequenceKey - The sequence key identifying which number sequence to advance and format
+ * @returns The next sequence value as a formatted string
+ * @throws Error when no sequence is found for the provided `sequenceKey`
  */
 export async function getNextNumber(
     connection: PoolConnection,

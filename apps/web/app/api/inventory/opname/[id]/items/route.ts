@@ -1,4 +1,3 @@
-
 import { NextRequest } from 'next/server';
 import { getAuthUser, requirePermission } from '@/lib/auth-middleware';
 import { successResponse, handleApiError } from '@/lib/api-response';
@@ -14,6 +13,14 @@ const updateItemsSchema = z.object({
     }))
 });
 
+/**
+ * Updates multiple opname items for the opname session identified by the route `id` using data from the request body.
+ *
+ * The request body must match the `updateItemsSchema` (an object with an `items` array of `{ itemId, countedQty, notes? }`). The handler validates the body, enforces the required inventory permission, and updates each item.
+ *
+ * @param params - An object (resolved promise) containing the route `id` string, parsed as the opname session id
+ * @returns An HTTP `Response`: `{ success: true }` on successful update, or a standardized error response on failure
+ */
 export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }

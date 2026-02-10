@@ -30,6 +30,16 @@ const statusColors: Record<string, string> = {
     CANCELLED: 'badge-voided',
 };
 
+/**
+ * Renders the Stock Opname management page with session list, filters, and pagination controls.
+ *
+ * Handles authentication and authorization: shows a full-page loader while auth is pending, redirects
+ * unauthenticated users to "/login", and displays an access-denied message when the user lacks the
+ * INVENTORY_VIEW permission. Fetches and displays opname sessions with loading, error, empty, and
+ * data states; includes controls for creating a new session when permitted.
+ *
+ * @returns The page element containing session list, filters, action buttons, and pagination UI.
+ */
 export default function StockOpnamePage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

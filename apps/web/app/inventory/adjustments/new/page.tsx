@@ -41,10 +41,24 @@ const REASON_CODES = [
     { code: 'OTHER', label: 'Lainnya' },
 ];
 
+/**
+ * Generates a short random alphanumeric identifier.
+ *
+ * @returns A 7-character lowercase alphanumeric string
+ */
 function generateId(): string {
     return Math.random().toString(36).substring(2, 9);
 }
 
+/**
+ * Page component rendering the "Create Inventory Adjustment" UI, allowing users to add/remove adjustment lines,
+ * select items, set adjustment quantities and reasons, and submit a manual inventory adjustment.
+ *
+ * If the user is not authenticated this component redirects to the login page. Submitting a valid form creates
+ * an adjustment and navigates to the created adjustment's detail page.
+ *
+ * @returns The React element for the create-adjustment page.
+ */
 export default function CreateAdjustmentPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

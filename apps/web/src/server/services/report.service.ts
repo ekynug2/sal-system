@@ -15,6 +15,13 @@ interface GLRow extends RowDataPacket {
     total_credit: number;
 }
 
+/**
+ * Builds a profit and loss report for the specified date range.
+ *
+ * @param startDate - Start date of the reporting period (ISO date string, e.g., `YYYY-MM-DD`)
+ * @param endDate - End date of the reporting period (ISO date string, e.g., `YYYY-MM-DD`)
+ * @returns A ProfitLossReport containing the period, itemized income, COGS, and expenses with their amounts, aggregated totals, `grossProfit`, and `netIncome`
+ */
 export async function getProfitLoss(params: {
     startDate: string;
     endDate: string;
@@ -92,6 +99,12 @@ export async function getProfitLoss(params: {
     return report;
 }
 
+/**
+ * Builds a balance sheet as of the specified date.
+ *
+ * @param params.asOf - Cutoff date (inclusive) for transactions, as an ISO date string (e.g., `YYYY-MM-DD`)
+ * @returns A BalanceSheet with assets, liabilities, and equity sections populated with account balances and totals; equity includes a "Current Earnings" line representing net income up to `asOf`.
+ */
 export async function getBalanceSheet(params: {
     asOf: string;
 }): Promise<BalanceSheet> {
@@ -185,6 +198,14 @@ export async function getBalanceSheet(params: {
     return report;
 }
 
+/**
+ * Generate a trial balance showing each account's ending debit or credit balance as of the given date.
+ *
+ * Includes only accounts with non-zero activity on or before the provided date.
+ *
+ * @param params.asOf - Date string to include transactions up to and including this date.
+ * @returns The TrialBalance containing `asOf`, a list of accounts with `debit` or `credit` ending balances, and `totalDebit`/`totalCredit` totals.
+ */
 export async function getTrialBalance(params: {
     asOf: string;
 }): Promise<TrialBalance> {
@@ -243,6 +264,13 @@ export async function getTrialBalance(params: {
     return report;
 }
 
+/**
+ * Generate a sales summary for the given date range.
+ *
+ * @param startDate - Start of the reporting period (inclusive), as a date string (e.g., ISO or YYYY-MM-DD)
+ * @param endDate - End of the reporting period (inclusive), as a date string (e.g., ISO or YYYY-MM-DD)
+ * @returns A SalesSummary containing `period` (string), `totalSales` (number), `totalCogs` (number), `grossProfit` (number, computed as `totalSales - totalCogs`), and `invoiceCount` (number)
+ */
 export async function getSalesReport(params: {
     startDate: string;
     endDate: string;
@@ -275,6 +303,13 @@ export async function getSalesReport(params: {
     };
 }
 
+/**
+ * Builds accounts receivable aging reports per customer as of the given cutoff date.
+ *
+ * @param params - Parameters object
+ * @param params.asOf - Cutoff date used to include invoices and compute days past due (invoice_date <= `asOf`)
+ * @returns An array of ARAgingReport entries, one per customer with outstanding invoices, each containing aging buckets (current, 1–30, 31–60, 61–90, over90), a total, and the list of invoices contributing to those buckets
+ */
 export async function getARAging(params: {
     asOf: string;
 }): Promise<ARAgingReport[]> {
@@ -338,6 +373,12 @@ export async function getARAging(params: {
     return Array.from(reportMap.values());
 }
 
+/**
+ * Generate accounts payable aging reports grouped by supplier as of a cutoff date.
+ *
+ * @param params - Object with `asOf`, the cutoff date (inclusive) used to select bills (ISO date string)
+ * @returns An array of `APAgingReport` objects, one per supplier, each containing supplier details, aging bucket totals (current, 1-30, 31-60, 61-90, over90, total) and the list of outstanding bills with their days past due
+ */
 export async function getAPAging(params: {
     asOf: string;
 }): Promise<APAgingReport[]> {
@@ -401,6 +442,13 @@ export async function getAPAging(params: {
     return Array.from(reportMap.values());
 }
 
+/**
+ * Compute inventory valuation as of a given date using the latest stock ledger balances per item.
+ *
+ * @param params - Parameters object
+ * @param params.asOf - Cutoff datetime (inclusive) used to read the latest ledger balances (e.g. '2023-10-27 23:59:59')
+ * @returns An InventoryValuationReport containing `asOf`, `totalValue`, and `items` where each item includes `itemId`, `sku`, `name`, `onHand`, `totalValue`, and `avgCost` (computed as `totalValue / onHand` when `onHand` is not zero)
+ */
 export async function getInventoryValuation(params: {
     asOf: string;
 }): Promise<InventoryValuationReport> {

@@ -6,6 +6,15 @@ import { useTrialBalance } from '@/hooks/use-reports';
 import { formatCurrency, formatDate } from '@/lib/api-client';
 import { Loader2, RefreshCw, Download } from 'lucide-react';
 
+/**
+ * Render the Trial Balance report page with date filtering, refresh, and print controls.
+ *
+ * Displays a header with actions, a date filter, and the report content which shows a loading
+ * indicator while fetching, a "no data" message when absent, or a table of account debit/credit
+ * balances with totals when data is available.
+ *
+ * @returns A JSX element representing the trial balance report page
+ */
 export default function TrialBalancePage() {
     const now = new Date();
     const today = now.toISOString().split('T')[0];

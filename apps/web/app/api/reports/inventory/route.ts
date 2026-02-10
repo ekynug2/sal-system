@@ -4,6 +4,14 @@ import { Permissions } from '@/shared/constants';
 import { getInventoryValuation } from '@/server/services/report.service';
 import { getAuthUser, requirePermission } from '@/lib/auth-middleware';
 
+/**
+ * Handle GET requests to return an inventory valuation report as of a specified date/time.
+ *
+ * The handler requires the authenticated user to have the `REPORT_INVENTORY` permission.
+ *
+ * @param request - Incoming NextRequest. May include an `asOf` query parameter (e.g., `YYYY-MM-DD` or a datetime). If `asOf` is omitted or is a date-only string, the handler uses the end of that day (`23:59:59`) as the timestamp.
+ * @returns The HTTP response containing the inventory valuation report for the computed `asOf` timestamp.
+ */
 export async function GET(request: NextRequest) {
     try {
         const { user } = await getAuthUser(request);

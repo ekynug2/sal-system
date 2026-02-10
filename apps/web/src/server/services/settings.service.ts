@@ -1,8 +1,13 @@
-
 import { query, execute } from '../db';
 import { RowDataPacket } from 'mysql2';
 import { SettingsKeys } from '@/shared/constants';
 
+/**
+ * Fetches settings from the database, optionally filtering to the specified keys.
+ *
+ * @param keys - Optional array of setting keys to return; when omitted or empty, all settings are returned.
+ * @returns A record mapping each setting key to its corresponding setting value.
+ */
 export async function getSettings(keys?: string[]): Promise<Record<string, string>> {
     let sql = 'SELECT setting_key, setting_value FROM settings';
     const params: string[] = [];
@@ -23,6 +28,14 @@ export async function getSettings(keys?: string[]): Promise<Record<string, strin
     return settings;
 }
 
+/**
+ * Insert or update multiple settings in the database from a key–value map.
+ *
+ * Performs a batch upsert for each entry in `settings`: inserts a new row for each key with its value,
+ * or updates `setting_value` and `updated_at` for existing keys. If `settings` is empty, the function does nothing.
+ *
+ * @param settings - An object mapping setting keys to their corresponding setting values
+ */
 export async function updateSettings(settings: Record<string, string>): Promise<void> {
     const values: (string)[] = [];
     const placeholders: string[] = [];

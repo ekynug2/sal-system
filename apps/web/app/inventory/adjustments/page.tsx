@@ -19,6 +19,12 @@ import {
     ChevronRight,
 } from 'lucide-react';
 
+/**
+ * Render the Inventory Adjustments page, guarding access by authentication and presenting loading,
+ * empty, and populated list states with navigation and pagination controls.
+ *
+ * @returns A React element representing the inventory adjustments list page, including header actions, table rows for adjustments, empty/loading states, and simple pagination controls.
+ */
 export default function InventoryAdjustmentsPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

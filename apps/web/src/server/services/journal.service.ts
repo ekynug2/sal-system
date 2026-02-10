@@ -61,7 +61,13 @@ export interface CreateJournalInput {
 // -----------------------------------------------------------------------------
 
 /**
- * Create a journal entry (within transaction)
+ * Create a balanced journal entry and persist it using the provided transaction connection.
+ *
+ * Validates that total debits and credits match (within 0.01), inserts the journal entry and its lines, updates account balances for each line, and returns the new entry id.
+ *
+ * @param input - Journal entry data including entryDate, source info, memo, lines, and postedBy
+ * @returns The ID of the created journal entry
+ * @throws Error if the sum of debits and credits differs by more than 0.01
  */
 export async function createJournalEntry(
     connection: PoolConnection,

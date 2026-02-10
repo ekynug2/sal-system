@@ -37,6 +37,13 @@ const statusColors: Record<string, string> = {
     VOIDED: 'badge-voided',
 };
 
+/**
+ * Render the Sales Invoices management page with search, filtering, export, print, per-invoice actions (view and post), and pagination.
+ *
+ * The page enforces authentication (redirects to /login when no user is present), fetches and displays invoice data, and provides UI flows for exporting to Excel/CSV, printing, and posting invoices (posting requires confirmation and shows success/error toasts).
+ *
+ * @returns The JSX element for the Sales Invoices listing and management page.
+ */
 export default function SalesInvoicesPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();

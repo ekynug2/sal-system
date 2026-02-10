@@ -17,7 +17,15 @@ export const masterDataKeys = {
     items: (params?: Record<string, unknown>) => [...masterDataKeys.all, 'items', params] as const,
 };
 
-// Hooks
+/**
+ * Fetches customer master data using the provided query parameters and returns a React Query result for that request.
+ *
+ * @param params - Query options for fetching customers. Defaults to `{ activeOnly: true }`.
+ *   - `search`: Optional text to filter customers by name or other indexed fields.
+ *   - `activeOnly`: When `true`, restricts results to active customers; when omitted no active-only filter is applied.
+ *   - `limit`: Maximum number of customers to return.
+ * @returns The React Query result containing the fetched array of `Customer` objects.
+ */
 
 export function useCustomers(params: {
     search?: string;
@@ -35,6 +43,15 @@ export function useCustomers(params: {
     });
 }
 
+/**
+ * Provides a React Query hook to fetch suppliers using optional filters.
+ *
+ * @param params - Filter and pagination options for the suppliers query
+ * @param params.search - Text to search supplier records by name or identifier
+ * @param params.activeOnly - When true, restrict results to active suppliers (default: true)
+ * @param params.limit - Maximum number of suppliers to return
+ * @returns The query result containing the fetched `Supplier[]` and React Query status/metadata
+ */
 export function useSuppliers(params: {
     search?: string;
     activeOnly?: boolean;
@@ -51,6 +68,15 @@ export function useSuppliers(params: {
     });
 }
 
+/**
+ * Provides a React Query hook to fetch item master data with optional filters.
+ *
+ * @param params - Filter and pagination options for the query. Defaults to `{ sellableOnly: true }`.
+ * @param params.search - Text to search item names or codes.
+ * @param params.sellableOnly - When true, restricts results to sellable items.
+ * @param params.purchasableOnly - When true, restricts results to purchasable items.
+ * @param params.limit - Maximum number of items to return.
+ * @returns The query result whose `data` is an array of `Item` objects.
 export function useItems(params: {
     search?: string;
     sellableOnly?: boolean;
@@ -86,4 +112,3 @@ export function useCreateItem() {
         mutationFn: (data: CreateItemInput) => apiPost('/items', data),
     });
 }
-
