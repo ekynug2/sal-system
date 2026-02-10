@@ -153,32 +153,32 @@ sal-system/
 
 ### Authentication
 ```
-POST /api/v1/auth/login
-POST /api/v1/auth/logout
-GET  /api/v1/me
+POST /api/auth/login
+POST /api/auth/logout
+GET  /api/me
 ```
 
 ### Sales
 ```
-GET  /api/v1/sales/invoices
-POST /api/v1/sales/invoices
-GET  /api/v1/sales/invoices/:id
-POST /api/v1/sales/invoices/:id/post
-POST /api/v1/sales/payments
+GET  /api/sales/invoices
+POST /api/sales/invoices
+GET  /api/sales/invoices/:id
+POST /api/sales/invoices/:id/post
+POST /api/sales/payments
 ```
 
 ### Inventory
 ```
-GET  /api/v1/inventory/stock-on-hand
-GET  /api/v1/inventory/ledger
-POST /api/v1/inventory/adjustments
+GET  /api/inventory/stock-on-hand
+GET  /api/inventory/ledger
+POST /api/inventory/adjustments
 ```
 
 ### Reports
 ```
-GET  /api/v1/reports/sales-summary
-GET  /api/v1/reports/ar-aging
-GET  /api/v1/reports/inventory-valuation
+GET  /api/reports/sales-summary
+GET  /api/reports/ar-aging
+GET  /api/reports/inventory-valuation
 ```
 
 ---
@@ -188,7 +188,6 @@ GET  /api/v1/reports/inventory-valuation
 | Service | Port | Description |
 |---------|------|-------------|
 | MySQL | 3306 | Database server |
-| phpMyAdmin | 8080 | Database admin UI |
 
 ### Environment Variables
 
