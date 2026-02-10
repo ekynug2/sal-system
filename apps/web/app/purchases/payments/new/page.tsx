@@ -9,24 +9,24 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/ui/providers/auth-provider';
 import { Sidebar } from '@/ui/components/sidebar';
 import { useCreatePurchasePayment, useUnpaidBills } from '@/hooks/use-purchases';
-import { useSuppliers } from '@/hooks/use-master-data';
+
 import { formatCurrency, formatDate } from '@/lib/api-client';
 import {
     ArrowLeft,
     CheckCircle,
     Loader2,
+    Search,
 } from 'lucide-react';
+import { SelectSupplierModal } from '@/ui/components/select-modals';
+
+import type { Supplier } from '@/shared/types';
 
 export default function CreatePurchasePaymentPage() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();
 
-    // Master Data
-    const { data: suppliersData } = useSuppliers();
-    const suppliers = suppliersData?.data || [];
-
     // State
-    const [supplierId, setSupplierId] = useState<number | null>(null);
+    const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
     const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
     const [method, setMethod] = useState('BANK_TRANSFER');
     const [amountTotal, setAmountTotal] = useState<number>(0);
@@ -34,12 +34,11 @@ export default function CreatePurchasePaymentPage() {
     const [memo, setMemo] = useState('');
 
     // Unpaid Bills
-    const { data: unpaidBills, isLoading: loadingBills } = useUnpaidBills(supplierId || undefined);
+    const { data: unpaidBills, isLoading: loadingBills } = useUnpaidBills(selectedSupplier?.id);
     const [allocations, setAllocations] = useState<{ [billId: number]: number }>({});
 
     const createPayment = useCreatePurchasePayment();
-    const [supplierSearch, setSupplierSearch] = useState('');
-    const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+    const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
 
     // Auto allocate when amount changes or bills loaded
     /*
@@ -51,10 +50,7 @@ export default function CreatePurchasePaymentPage() {
     if (authLoading) return null;
     if (!user) { router.push('/login'); return null; }
 
-    const filteredSuppliers = suppliers.filter(s =>
-        s.name.toLowerCase().includes(supplierSearch.toLowerCase()) ||
-        s.supplierCode.toLowerCase().includes(supplierSearch.toLowerCase())
-    );
+
 
     const totalAllocated = Object.values(allocations).reduce((sum, val) => sum + val, 0);
 
@@ -91,10 +87,10 @@ export default function CreatePurchasePaymentPage() {
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!supplierId) { alert('Select supplier'); return; }
-        if (amountTotal <= 0) { alert('Enter valid amount'); return; }
+        if (!selectedSupplier) { alert('Pilih pemasok'); return; }
+        if (amountTotal <= 0) { alert('Masukkan jumlah yang valid'); return; }
         if (Math.abs(amountTotal - totalAllocated) > 0.01) {
-            alert(`Allocation mismatch. Allocated: ${formatCurrency(totalAllocated)}, Total: ${formatCurrency(amountTotal)}`);
+            alert(`Alokasi tidak cocok. Teralokasi: ${formatCurrency(totalAllocated)}, Total: ${formatCurrency(amountTotal)}`);
             return;
         }
 
@@ -105,11 +101,11 @@ export default function CreatePurchasePaymentPage() {
                 amount
             }));
 
-        if (allocationList.length === 0) { alert('No bills selected for payment'); return; }
+        if (allocationList.length === 0) { alert('Tidak ada tagihan dipilih untuk pembayaran'); return; }
 
         try {
             await createPayment.mutateAsync({
-                supplierId,
+                supplierId: selectedSupplier.id,
                 paymentDate,
                 method,
                 amountTotal,
@@ -118,10 +114,10 @@ export default function CreatePurchasePaymentPage() {
                 memo: memo || undefined,
                 // bankAccountId optional
             });
-            alert('Payment recorded successfully');
+            alert('Pembayaran berhasil dicatat');
             router.push('/purchases/bills'); // Or to payment detail if exists
         } catch (err) {
-            alert(`Failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            alert(`Gagal: ${err instanceof Error ? err.message : 'Kesalahan tidak diketahui'}`);
         }
     }
 
@@ -135,11 +131,11 @@ export default function CreatePurchasePaymentPage() {
                             <button type="button" className="btn btn-ghost" onClick={() => router.push('/purchases/bills')}>
                                 <ArrowLeft size={20} />
                             </button>
-                            <h1 className="page-title">Record Purchase Payment</h1>
+                            <h1 className="page-title">Catat Pembayaran Pembelian</h1>
                         </div>
                         <button type="submit" className="btn btn-primary" disabled={createPayment.isPending}>
                             {createPayment.isPending ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle size={18} />}
-                            Save Payment
+                            Simpan Pembayaran
                         </button>
                     </div>
 
@@ -148,44 +144,31 @@ export default function CreatePurchasePaymentPage() {
                         {/* Left: Payment Details */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                             <div className="card_p4" style={{ padding: 'var(--space-4)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)' }}>
-                                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-4)' }}>Payment Details</h3>
+                                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 'var(--space-4)' }}>Detail Pembayaran</h3>
 
                                 <div className="form-group mb-4">
-                                    <label className="label">Supplier *</label>
+                                    <label className="label">Pemasok *</label>
                                     <div style={{ position: 'relative' }}>
+                                        <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                                         <input
                                             type="text"
-                                            placeholder="Search supplier..."
-                                            value={supplierSearch}
-                                            onChange={(e) => { setSupplierSearch(e.target.value); setShowSupplierDropdown(true); }}
-                                            onFocus={() => { setSupplierSearch(''); setShowSupplierDropdown(true); }}
-                                            className="input w-full"
-                                            style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                                            placeholder="Pilih pemasok..."
+                                            value={selectedSupplier?.name || ''}
+                                            readOnly
+                                            onClick={() => setIsSupplierModalOpen(true)}
+                                            className="input pl-9"
+                                            style={{ width: '100%', paddingLeft: 36, paddingRight: 8, paddingTop: 8, paddingBottom: 8, border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer' }}
                                         />
-                                        {showSupplierDropdown && (
-                                            <div className="dropdown-menu">
-                                                {filteredSuppliers.map(s => (
-                                                    <div key={s.id} className="dropdown-item" onClick={() => {
-                                                        setSupplierId(s.id);
-                                                        setSupplierSearch(s.name);
-                                                        setShowSupplierDropdown(false);
-                                                        setAllocations({});
-                                                    }}>
-                                                        <div style={{ fontWeight: 500 }}>{s.name}</div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
 
                                 <div className="form-group mb-4">
-                                    <label className="label">Payment Date *</label>
+                                    <label className="label">Tanggal Pembayaran *</label>
                                     <input type="date" className="input" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} required />
                                 </div>
 
                                 <div className="form-group mb-4">
-                                    <label className="label">Amount Received *</label>
+                                    <label className="label">Jumlah Diterima *</label>
                                     <input
                                         type="number"
                                         className="input money"
@@ -195,23 +178,23 @@ export default function CreatePurchasePaymentPage() {
                                         style={{ fontWeight: 'bold', fontSize: '1.1rem' }}
                                     />
                                     <button type="button" className="btn btn-secondary btn-sm mt-2 w-full" onClick={autoAllocate}>
-                                        Auto Allocate
+                                        Alokasi Otomatis
                                     </button>
                                 </div>
 
                                 <div className="form-group mb-4">
-                                    <label className="label">Payment Method</label>
+                                    <label className="label">Metode Pembayaran</label>
                                     <select className="input" value={method} onChange={e => setMethod(e.target.value)}>
-                                        <option value="CASH">Cash</option>
-                                        <option value="BANK_TRANSFER">Bank Transfer</option>
-                                        <option value="CHECK">Check</option>
-                                        <option value="OTHER">Other</option>
+                                        <option value="CASH">Tunai</option>
+                                        <option value="BANK_TRANSFER">Transfer Bank</option>
+                                        <option value="CHECK">Cek</option>
+                                        <option value="OTHER">Lainnya</option>
                                     </select>
                                 </div>
 
                                 <div className="form-group mb-4">
-                                    <label className="label">Reference No</label>
-                                    <input type="text" className="input" value={referenceNo} onChange={e => setReferenceNo(e.target.value)} placeholder="e.g. TR-12345" />
+                                    <label className="label">No. Referensi</label>
+                                    <input type="text" className="input" value={referenceNo} onChange={e => setReferenceNo(e.target.value)} placeholder="cth. TR-12345" />
                                 </div>
 
                                 <div className="form-group">
@@ -224,9 +207,9 @@ export default function CreatePurchasePaymentPage() {
                         {/* Right: Unpaid Bills */}
                         <div className="card_p0" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)' }}>
                             <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Unpaid Bills</h3>
+                                <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Tagihan Belum Lunas</h3>
                                 <div style={{ fontSize: '0.875rem' }}>
-                                    Allocated: <span style={{ fontWeight: 600, color: Math.abs(totalAllocated - amountTotal) < 0.01 ? 'green' : 'red' }}>{formatCurrency(totalAllocated)}</span>
+                                    Teralokasi: <span style={{ fontWeight: 600, color: Math.abs(totalAllocated - amountTotal) < 0.01 ? 'green' : 'red' }}>{formatCurrency(totalAllocated)}</span>
                                     {' / '}
                                     <span style={{ color: 'var(--text-secondary)' }}>{formatCurrency(amountTotal)}</span>
                                 </div>
@@ -234,21 +217,21 @@ export default function CreatePurchasePaymentPage() {
 
                             {loadingBills ? (
                                 <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}><Loader2 className="animate-spin" /></div>
-                            ) : !supplierId ? (
-                                <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-secondary)' }}>Select a supplier to see unpaid bills</div>
+                            ) : !selectedSupplier ? (
+                                <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-secondary)' }}>Pilih pemasok untuk melihat tagihan belum lunas</div>
                             ) : unpaidBills?.length === 0 ? (
-                                <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-secondary)' }}>No unpaid bills found</div>
+                                <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-secondary)' }}>Tidak ada tagihan belum lunas ditemukan</div>
                             ) : (
                                 <div style={{ overflowX: 'auto' }}>
                                     <table style={{ minWidth: 600 }}>
                                         <thead>
                                             <tr>
-                                                <th>Bill #</th>
-                                                <th>Date</th>
-                                                <th>Due Date</th>
+                                                <th>No. Tagihan</th>
+                                                <th>Tanggal</th>
+                                                <th>Tanggal Jatuh Tempo</th>
                                                 <th style={{ textAlign: 'right' }}>Total</th>
-                                                <th style={{ textAlign: 'right' }}>Balance Due</th>
-                                                <th style={{ textAlign: 'right', width: 150 }}>Payment</th>
+                                                <th style={{ textAlign: 'right' }}>Sisa Tagihan</th>
+                                                <th style={{ textAlign: 'right', width: 150 }}>Pembayaran</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -276,7 +259,7 @@ export default function CreatePurchasePaymentPage() {
                                         </tbody>
                                         <tfoot>
                                             <tr>
-                                                <td colSpan={5} style={{ textAlign: 'right', fontWeight: 600 }}>Total Allocated</td>
+                                                <td colSpan={5} style={{ textAlign: 'right', fontWeight: 600 }}>Total Teralokasi</td>
                                                 <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--primary-600)' }}>{formatCurrency(totalAllocated)}</td>
                                             </tr>
                                         </tfoot>
@@ -287,9 +270,15 @@ export default function CreatePurchasePaymentPage() {
                     </div>
 
                     {/* Overlay */}
-                    {showSupplierDropdown && (
-                        <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setShowSupplierDropdown(false)} />
-                    )}
+                    <SelectSupplierModal
+                        isOpen={isSupplierModalOpen}
+                        onClose={() => setIsSupplierModalOpen(false)}
+                        onSelect={(s) => {
+                            setSelectedSupplier(s);
+                            setIsSupplierModalOpen(false);
+                            setAllocations({});
+                        }}
+                    />
                 </form>
             </main>
 

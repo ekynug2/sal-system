@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/ui/providers/auth-provider';
 import { Sidebar } from '@/ui/components/sidebar';
-import { useSuppliers, useItems } from '@/hooks/use-master-data';
+
 import { apiPost, formatCurrency } from '@/lib/api-client';
 import {
     ArrowLeft,
@@ -20,6 +20,7 @@ import {
     Search,
     Package,
 } from 'lucide-react';
+import { SelectSupplierModal, SelectItemModal } from '@/ui/components/select-modals';
 import type { Item, Supplier } from '@/shared/types';
 
 interface ReceiptLine {
@@ -39,7 +40,7 @@ interface ReceiptLine {
 const TAX_CODES = [
     { code: 'PPN11', label: 'PPN 11%', rate: 0.11 },
     { code: 'PPN0', label: 'PPN 0%', rate: 0 },
-    { code: 'EXEMPT', label: 'Exempt', rate: 0 },
+    { code: 'EXEMPT', label: 'Bebas Pajak', rate: 0 },
 ];
 
 function generateId(): string {
@@ -69,25 +70,14 @@ export default function CreatePurchaseReceiptPage() {
     const createReceipt = useCreateReceipt();
 
     // State
-    const [supplierId, setSupplierId] = useState<number | null>(null);
+    const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
     const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split('T')[0]);
     const [referenceNo, setReferenceNo] = useState('');
     const [memo, setMemo] = useState('');
     const [lines, setLines] = useState<ReceiptLine[]>([]);
-    const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
-    const [supplierSearch, setSupplierSearch] = useState('');
-    const [showItemDropdown, setShowItemDropdown] = useState<string | null>(null);
-    const [itemSearch, setItemSearch] = useState('');
-
-    // Fetch suppliers
-    const { data: suppliersData, isLoading: suppliersLoading } = useSuppliers({ limit: 100 });
-    const suppliers = suppliersData?.data || [];
-
-    // Fetch items
-    const { data: itemsData, isLoading: itemsLoading } = useItems({ limit: 500 });
-    const items = itemsData?.data || [];
-
-    const selectedSupplier = suppliers.find(s => s.id === supplierId);
+    const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+    const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+    const [activeLineId, setActiveLineId] = useState<string | null>(null);
 
     if (authLoading) return null;
 
@@ -96,11 +86,7 @@ export default function CreatePurchaseReceiptPage() {
         return null;
     }
 
-    function selectSupplier(supplier: Supplier) {
-        setSupplierId(supplier.id);
-        setShowSupplierDropdown(false);
-        setSupplierSearch('');
-    }
+
 
     function addLine() {
         setLines([
@@ -139,8 +125,6 @@ export default function CreatePurchaseReceiptPage() {
             }
             return l;
         }));
-        setShowItemDropdown(null);
-        setItemSearch('');
     }
 
     function updateLine(lineId: string, updates: Partial<ReceiptLine>) {
@@ -170,20 +154,20 @@ export default function CreatePurchaseReceiptPage() {
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
 
-        if (!supplierId) {
-            alert('Please select a supplier');
+        if (!selectedSupplier) {
+            alert('Silakan pilih supplier');
             return;
         }
 
         const validLines = lines.filter(l => l.itemId && l.qty > 0);
         if (validLines.length === 0) {
-            alert('Please add at least one item');
+            alert('Silakan tambahkan setidaknya satu barang');
             return;
         }
 
         try {
             const result = await createReceipt.mutateAsync({
-                supplierId,
+                supplierId: selectedSupplier.id,
                 receiptDate,
                 referenceNo: referenceNo || undefined,
                 memo: memo || undefined,
@@ -198,18 +182,11 @@ export default function CreatePurchaseReceiptPage() {
 
             router.push(`/purchases/receipts/${result.id}`);
         } catch (err) {
-            alert(`Failed to create receipt: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            alert(`Gagal membuat penerimaan: ${err instanceof Error ? err.message : 'Kesalahan tidak diketahui'}`);
         }
     }
 
-    const filteredSuppliers = suppliers.filter((s: Supplier) =>
-        s.name.toLowerCase().includes(supplierSearch.toLowerCase())
-    );
 
-    const filteredItems = items.filter((i: Item) =>
-        i.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
-        i.sku.toLowerCase().includes(itemSearch.toLowerCase())
-    );
 
     return (
         <div className="app-layout">
@@ -230,10 +207,10 @@ export default function CreatePurchaseReceiptPage() {
                             <div>
                                 <h1 className="page-title">
                                     <Package size={28} style={{ marginRight: 'var(--space-2)', verticalAlign: 'middle' }} />
-                                    New Purchase Receipt
+                                    Penerimaan Pembelian Baru
                                 </h1>
                                 <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                                    Record received goods from supplier
+                                    Catat barang diterima dari supplier
                                 </p>
                             </div>
                         </div>
@@ -243,7 +220,7 @@ export default function CreatePurchaseReceiptPage() {
                                 className="btn btn-secondary"
                                 onClick={() => router.push('/purchases/receipts')}
                             >
-                                Cancel
+                                Batal
                             </button>
                             <button
                                 type="submit"
@@ -255,7 +232,7 @@ export default function CreatePurchaseReceiptPage() {
                                 ) : (
                                     <Save size={18} />
                                 )}
-                                Save Receipt
+                                Simpan Penerimaan
                             </button>
                         </div>
                     </div>
@@ -277,70 +254,23 @@ export default function CreatePurchaseReceiptPage() {
                                             top: '50%',
                                             transform: 'translateY(-50%)',
                                             color: 'var(--text-muted)',
+                                            pointerEvents: 'none',
                                         }}
                                     />
                                     <input
                                         type="text"
-                                        placeholder="Search supplier..."
-                                        value={showSupplierDropdown ? supplierSearch : (selectedSupplier?.name || '')}
-                                        onChange={(e) => {
-                                            setSupplierSearch(e.target.value);
-                                            setShowSupplierDropdown(true);
-                                        }}
-                                        onFocus={() => setShowSupplierDropdown(true)}
-                                        style={{ paddingLeft: 42 }}
-                                        autoComplete="off"
+                                        placeholder="Pilih supplier..."
+                                        value={selectedSupplier?.name || ''}
+                                        readOnly
+                                        onClick={() => setIsSupplierModalOpen(true)}
+                                        style={{ paddingLeft: 42, cursor: 'pointer' }}
                                     />
-                                    {showSupplierDropdown && (
-                                        <div
-                                            style={{
-                                                position: 'absolute',
-                                                top: '100%',
-                                                left: 0,
-                                                right: 0,
-                                                background: 'var(--bg-primary)',
-                                                border: '1px solid var(--border-color)',
-                                                borderRadius: 'var(--radius-md)',
-                                                boxShadow: 'var(--shadow-lg)',
-                                                zIndex: 100,
-                                                maxHeight: 300,
-                                                overflowY: 'auto',
-                                            }}
-                                        >
-                                            {suppliersLoading ? (
-                                                <div style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Loading...</div>
-                                            ) : filteredSuppliers.length === 0 ? (
-                                                <div style={{ padding: 'var(--space-3)', color: 'var(--text-muted)', textAlign: 'center' }}>
-                                                    No suppliers found
-                                                </div>
-                                            ) : (
-                                                filteredSuppliers.map(s => (
-                                                    <div
-                                                        key={s.id}
-                                                        onClick={() => selectSupplier(s)}
-                                                        style={{
-                                                            padding: 'var(--space-2) var(--space-3)',
-                                                            cursor: 'pointer',
-                                                            borderBottom: '1px solid var(--border-color)',
-                                                        }}
-                                                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
-                                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                                    >
-                                                        <div style={{ fontWeight: 500 }}>{s.name}</div>
-                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                                            {s.phone || 'No phone'}
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    )}
                                 </div>
                             </div>
 
                             <div>
                                 <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
-                                    Receipt Date *
+                                    Tanggal Penerimaan *
                                 </label>
                                 <input
                                     type="date"
@@ -352,13 +282,13 @@ export default function CreatePurchaseReceiptPage() {
 
                             <div>
                                 <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
-                                    Reference No
+                                    No. Referensi
                                 </label>
                                 <input
                                     type="text"
                                     value={referenceNo}
                                     onChange={(e) => setReferenceNo(e.target.value)}
-                                    placeholder="Delivery note, etc..."
+                                    placeholder="Surat jalan, dll..."
                                 />
                             </div>
 
@@ -370,20 +300,20 @@ export default function CreatePurchaseReceiptPage() {
                                     type="text"
                                     value={memo}
                                     onChange={(e) => setMemo(e.target.value)}
-                                    placeholder="Internal notes..."
+                                    placeholder="Catatan internal..."
                                 />
                             </div>
                         </div>
                     </div>
 
                     {/* Line Items */}
-                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div className="card" style={{ padding: 0 }}>
                         <div style={{
                             padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)',
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between'
                         }}>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>
-                                Receipt Lines
+                                Baris Penerimaan
                             </h3>
                             <button
                                 type="button"
@@ -391,7 +321,7 @@ export default function CreatePurchaseReceiptPage() {
                                 onClick={addLine}
                             >
                                 <Plus size={18} />
-                                Add Item
+                                Tambah Barang
                             </button>
                         </div>
 
@@ -399,12 +329,12 @@ export default function CreatePurchaseReceiptPage() {
                             <table style={{ minWidth: 800 }}>
                                 <thead>
                                     <tr>
-                                        <th style={{ width: 250 }}>Item</th>
-                                        <th style={{ width: 80, textAlign: 'right' }}>Qty</th>
-                                        <th style={{ width: 120, textAlign: 'right' }}>Unit Cost</th>
-                                        <th style={{ width: 100 }}>Tax</th>
+                                        <th style={{ width: 250 }}>Barang</th>
+                                        <th style={{ width: 80, textAlign: 'right' }}>Jml</th>
+                                        <th style={{ width: 120, textAlign: 'right' }}>Harga Satuan</th>
+                                        <th style={{ width: 100 }}>Pajak</th>
                                         <th style={{ width: 120, textAlign: 'right' }}>Subtotal</th>
-                                        <th style={{ width: 100, textAlign: 'right' }}>Tax Amt</th>
+                                        <th style={{ width: 100, textAlign: 'right' }}>Jml Pajak</th>
                                         <th style={{ width: 150 }}>Memo</th>
                                         <th style={{ width: 50 }}></th>
                                     </tr>
@@ -413,7 +343,7 @@ export default function CreatePurchaseReceiptPage() {
                                     {lines.length === 0 ? (
                                         <tr>
                                             <td colSpan={8} style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--text-muted)' }}>
-                                                No items added. Click &ldquo;Add Item&rdquo; to start.
+                                                Belum ada barang. Klik &ldquo;Tambah Barang&rdquo; untuk memulai.
                                             </td>
                                         </tr>
                                     ) : (
@@ -427,60 +357,18 @@ export default function CreatePurchaseReceiptPage() {
                                                         </div>
                                                     ) : (
                                                         <div style={{ position: 'relative' }}>
+                                                            <Search size={16} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                                                             <input
                                                                 type="text"
-                                                                placeholder="Search item..."
-                                                                value={showItemDropdown === line.id ? itemSearch : ''}
-                                                                onChange={(e) => {
-                                                                    setItemSearch(e.target.value);
-                                                                    setShowItemDropdown(line.id);
+                                                                placeholder="Pilih barang..."
+                                                                value={line.itemName || ''}
+                                                                readOnly
+                                                                onClick={() => {
+                                                                    setActiveLineId(line.id);
+                                                                    setIsItemModalOpen(true);
                                                                 }}
-                                                                onFocus={() => setShowItemDropdown(line.id)}
+                                                                style={{ paddingLeft: 36, cursor: 'pointer' }}
                                                             />
-                                                            {showItemDropdown === line.id && (
-                                                                <div
-                                                                    style={{
-                                                                        position: 'absolute',
-                                                                        top: '100%',
-                                                                        left: 0,
-                                                                        right: 0,
-                                                                        background: 'var(--bg-primary)',
-                                                                        border: '1px solid var(--border-color)',
-                                                                        borderRadius: 'var(--radius-md)',
-                                                                        boxShadow: 'var(--shadow-lg)',
-                                                                        zIndex: 100,
-                                                                        maxHeight: 200,
-                                                                        overflowY: 'auto',
-                                                                    }}
-                                                                >
-                                                                    {itemsLoading ? (
-                                                                        <div style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Loading...</div>
-                                                                    ) : filteredItems.length === 0 ? (
-                                                                        <div style={{ padding: 'var(--space-3)', color: 'var(--text-muted)', textAlign: 'center' }}>
-                                                                            No items found
-                                                                        </div>
-                                                                    ) : (
-                                                                        filteredItems.slice(0, 10).map(item => (
-                                                                            <div
-                                                                                key={item.id}
-                                                                                onClick={() => selectItem(line.id, item)}
-                                                                                style={{
-                                                                                    padding: 'var(--space-2) var(--space-3)',
-                                                                                    cursor: 'pointer',
-                                                                                    borderBottom: '1px solid var(--border-color)',
-                                                                                }}
-                                                                                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
-                                                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                                                            >
-                                                                                <div style={{ fontWeight: 500 }}>{item.name}</div>
-                                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                                                                    {item.sku} • {formatCurrency(item.lastCost || item.avgCost || 0)}
-                                                                                </div>
-                                                                            </div>
-                                                                        ))
-                                                                    )}
-                                                                </div>
-                                                            )}
                                                         </div>
                                                     )}
                                                 </td>
@@ -549,7 +437,7 @@ export default function CreatePurchaseReceiptPage() {
                                             <td></td>
                                         </tr>
                                         <tr>
-                                            <td colSpan={4} style={{ textAlign: 'right', fontWeight: 500 }}>Tax</td>
+                                            <td colSpan={4} style={{ textAlign: 'right', fontWeight: 500 }}>Pajak</td>
                                             <td className="money" style={{ textAlign: 'right' }}>{formatCurrency(taxTotal)}</td>
                                             <td></td>
                                             <td></td>
@@ -571,15 +459,25 @@ export default function CreatePurchaseReceiptPage() {
             </main>
 
             {/* Click outside to close dropdowns */}
-            {(showSupplierDropdown || showItemDropdown) && (
-                <div
-                    style={{ position: 'fixed', inset: 0, zIndex: 50 }}
-                    onClick={() => {
-                        setShowSupplierDropdown(false);
-                        setShowItemDropdown(null);
-                    }}
-                />
-            )}
+            <SelectSupplierModal
+                isOpen={isSupplierModalOpen}
+                onClose={() => setIsSupplierModalOpen(false)}
+                onSelect={(s) => {
+                    setSelectedSupplier(s);
+                    setIsSupplierModalOpen(false);
+                }}
+            />
+
+            <SelectItemModal
+                isOpen={isItemModalOpen}
+                onClose={() => setIsItemModalOpen(false)}
+                onSelect={(item) => {
+                    if (activeLineId) {
+                        selectItem(activeLineId, item);
+                        setIsItemModalOpen(false);
+                    }
+                }}
+            />
         </div>
     );
 }

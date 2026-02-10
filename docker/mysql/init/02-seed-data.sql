@@ -376,9 +376,9 @@ INSERT INTO number_sequences (sequence_key, prefix, next_number, number_length, 
 ('ADJUSTMENT', 'ADJ', 1, 6, 'YEARLY'),
 ('OPNAME', 'OPN', 1, 6, 'YEARLY'),
 ('JOURNAL', 'JV', 1, 6, 'YEARLY'),
-('CUSTOMER', 'C', 1, 5, 'NEVER'),
-('SUPPLIER', 'S', 1, 5, 'NEVER'),
-('ITEM', 'I', 1, 5, 'NEVER');
+('CUSTOMER', 'C', 5, 5, 'NEVER'),
+('SUPPLIER', 'S', 4, 5, 'NEVER'),
+('ITEM', 'I', 11, 5, 'NEVER');
 
 -- -----------------------------------------------------------------------------
 -- 12. Application Settings

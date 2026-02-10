@@ -46,7 +46,7 @@ export default function SuppliersPage() {
         return null;
     }
 
-    const suppliers = data?.data || [];
+    const suppliers = data || [];
 
     return (
         <div className="app-layout">
@@ -55,16 +55,16 @@ export default function SuppliersPage() {
                 {/* Header */}
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Suppliers</h1>
+                        <h1 className="page-title">Pemasok</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            Manage your suppliers
+                            Kelola pemasok Anda
                         </p>
                     </div>
                     <div>
                         {hasPermission(Permissions.SUPPLIER_CREATE) && (
                             <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
                                 <Plus size={18} />
-                                New Supplier
+                                Pemasok Baru
                             </button>
                         )}
                     </div>
@@ -77,7 +77,7 @@ export default function SuppliersPage() {
                             <Search size={18} style={{ position: 'absolute', left: 12, top: 11, color: 'var(--text-muted)' }} />
                             <input
                                 type="text"
-                                placeholder="Search suppliers..."
+                                placeholder="Cari pemasok..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 style={{ paddingLeft: 42, width: '100%' }}
@@ -92,23 +92,23 @@ export default function SuppliersPage() {
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Loader2 className="animate-spin" size={32} />
                             <p style={{ marginTop: 'var(--space-2)', color: 'var(--text-muted)' }}>
-                                Loading suppliers...
+                                Memuat pemasok...
                             </p>
                         </div>
                     ) : suppliers.length === 0 ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Truck size={48} style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-2)' }} />
-                            <p style={{ color: 'var(--text-muted)' }}>No suppliers found</p>
+                            <p style={{ color: 'var(--text-muted)' }}>Tidak ada pemasok ditemukan</p>
                         </div>
                     ) : (
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Code</th>
-                                    <th>Name</th>
+                                    <th>Kode</th>
+                                    <th>Nama</th>
                                     <th>Email</th>
-                                    <th>Phone</th>
-                                    <th style={{ textAlign: 'right' }}>Balance</th>
+                                    <th>Telepon</th>
+                                    <th style={{ textAlign: 'right' }}>Saldo</th>
                                     <th style={{ textAlign: 'center' }}>Status</th>
                                 </tr>
                             </thead>
@@ -124,7 +124,7 @@ export default function SuppliersPage() {
                                         </td>
                                         <td style={{ textAlign: 'center' }}>
                                             <span className={`badge ${supplier.isActive ? 'badge-success' : 'badge-secondary'}`}>
-                                                {supplier.isActive ? 'Active' : 'Inactive'}
+                                                {supplier.isActive ? 'Aktif' : 'Tidak Aktif'}
                                             </span>
                                         </td>
                                     </tr>
@@ -175,7 +175,7 @@ function CreateSupplierModal({ onClose, onSuccess }: { onClose: () => void; onSu
             });
             onSuccess();
         } catch (err) {
-            alert(`Failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            alert(`Gagal: ${err instanceof Error ? err.message : 'Kesalahan tidak diketahui'}`);
         }
     };
 
@@ -183,13 +183,13 @@ function CreateSupplierModal({ onClose, onSuccess }: { onClose: () => void; onSu
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>New Supplier</h2>
+                    <h2>Pemasok Baru</h2>
                     <button className="btn btn-ghost" onClick={onClose}><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
                         <div className="form-group">
-                            <label className="label">Name *</label>
+                            <label className="label">Nama *</label>
                             <input
                                 type="text"
                                 required
@@ -207,7 +207,7 @@ function CreateSupplierModal({ onClose, onSuccess }: { onClose: () => void; onSu
                                 />
                             </div>
                             <div className="form-group">
-                                <label className="label">Phone</label>
+                                <label className="label">Telepon</label>
                                 <input
                                     type="text"
                                     value={formData.phone}
@@ -216,7 +216,7 @@ function CreateSupplierModal({ onClose, onSuccess }: { onClose: () => void; onSu
                             </div>
                         </div>
                         <div className="form-group">
-                            <label className="label">Address</label>
+                            <label className="label">Alamat</label>
                             <textarea
                                 value={formData.address}
                                 onChange={e => setFormData({ ...formData, address: e.target.value })}
@@ -225,7 +225,7 @@ function CreateSupplierModal({ onClose, onSuccess }: { onClose: () => void; onSu
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                             <div className="form-group">
-                                <label className="label">Terms (Days)</label>
+                                <label className="label">Termin (Hari)</label>
                                 <input
                                     type="number"
                                     min={0}
@@ -234,12 +234,12 @@ function CreateSupplierModal({ onClose, onSuccess }: { onClose: () => void; onSu
                                 />
                             </div>
                             <div className="form-group">
-                                <label className="label">Tax Code</label>
+                                <label className="label">Kode Pajak</label>
                                 <select
                                     value={formData.taxCode}
                                     onChange={e => setFormData({ ...formData, taxCode: e.target.value })}
                                 >
-                                    <option value="NON">Non-Taxable</option>
+                                    <option value="NON">Tanpa Pajak</option>
                                     <option value="PPN">PPN (11%)</option>
                                 </select>
                             </div>
@@ -253,7 +253,7 @@ function CreateSupplierModal({ onClose, onSuccess }: { onClose: () => void; onSu
                             />
                         </div>
                         <div className="form-group">
-                            <label className="label">Notes</label>
+                            <label className="label">Catatan</label>
                             <textarea
                                 value={formData.notes}
                                 onChange={e => setFormData({ ...formData, notes: e.target.value })}
@@ -262,10 +262,10 @@ function CreateSupplierModal({ onClose, onSuccess }: { onClose: () => void; onSu
                         </div>
                     </div>
                     <div className="modal-footer">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+                        <button type="button" className="btn btn-secondary" onClick={onClose}>Batal</button>
                         <button type="submit" className="btn btn-primary" disabled={createSupplier.isPending}>
                             {createSupplier.isPending ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                            Save Supplier
+                            Simpan Pemasok
                         </button>
                     </div>
                 </form>

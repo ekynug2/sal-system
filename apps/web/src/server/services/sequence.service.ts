@@ -5,6 +5,20 @@
 import { RowDataPacket } from 'mysql2';
 import { queryTx, executeTx } from '../db';
 import type { PoolConnection } from 'mysql2/promise';
+import { SettingsKeys } from '@/shared/constants';
+
+// Map SequenceKeys to SettingsKeys for custom formatting
+const SequenceToSettingMap: Record<string, string> = {
+    'SALES_INVOICE': SettingsKeys.FORMAT_SALES_INVOICE,
+    'SALES_PAYMENT': SettingsKeys.FORMAT_SALES_PAYMENT,
+    'CREDIT_NOTE': SettingsKeys.FORMAT_SALES_CREDIT_NOTE,
+    'PURCHASE_RECEIPT': SettingsKeys.FORMAT_PURCHASE_RECEIPT,
+    'PURCHASE_BILL': SettingsKeys.FORMAT_PURCHASE_BILL,
+    'PURCHASE_PAYMENT': SettingsKeys.FORMAT_PURCHASE_PAYMENT,
+    'ADJUSTMENT': SettingsKeys.FORMAT_INVENTORY_ADJUSTMENT,
+    'OPNAME': SettingsKeys.FORMAT_INVENTORY_OPNAME,
+    'JOURNAL': SettingsKeys.FORMAT_JOURNAL_ENTRY,
+};
 
 interface SequenceRow extends RowDataPacket {
     id: number;
@@ -38,8 +52,8 @@ export async function getNextNumber(
     const seq = rows[0];
     let nextNumber = seq.next_number;
 
-    // Check if reset is needed
-    if (seq.reset_period) {
+    // Check if reset is needed (only for YEARLY or MONTHLY)
+    if (seq.reset_period === 'YEARLY' || seq.reset_period === 'MONTHLY') {
         const now = new Date();
         const lastReset = seq.last_reset_date ? new Date(seq.last_reset_date) : null;
 
@@ -72,7 +86,7 @@ export async function getNextNumber(
             );
         }
     } else {
-        // No reset, just increment
+        // No reset period (NEVER or NULL), just increment
         await executeTx(
             connection,
             'UPDATE number_sequences SET next_number = next_number + 1 WHERE id = ?',
@@ -80,15 +94,38 @@ export async function getNextNumber(
         );
     }
 
-    // Format the number
     const paddedNumber = String(nextNumber).padStart(seq.number_length, '0');
+    const now = new Date();
 
-    // Add year/month prefix if reset period is set
+    // Check for custom format in settings
+    const settingKey = SequenceToSettingMap[sequenceKey];
+    if (settingKey) {
+        const settingRows = await queryTx<RowDataPacket[]>(
+            connection,
+            'SELECT setting_value FROM settings WHERE setting_key = ?',
+            [settingKey]
+        );
+
+        if (settingRows.length > 0 && settingRows[0].setting_value) {
+            const formatString = settingRows[0].setting_value;
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const yy = String(year).slice(-2);
+
+            return formatString
+                .replace('{YEAR}', String(year))
+                .replace('{YY}', yy)
+                .replace('{MONTH}', month)
+                .replace('{MM}', month)
+                .replace('{SEQ}', paddedNumber);
+        }
+    }
+
+    // Default Legacy Formatting
     let prefix = seq.prefix;
     if (seq.reset_period === 'YEARLY') {
-        prefix += String(new Date().getFullYear()).slice(-2);
+        prefix += String(now.getFullYear()).slice(-2);
     } else if (seq.reset_period === 'MONTHLY') {
-        const now = new Date();
         prefix += String(now.getFullYear()).slice(-2) + String(now.getMonth() + 1).padStart(2, '0');
     }
 

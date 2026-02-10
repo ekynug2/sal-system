@@ -6,7 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost, generateIdempotencyKey } from '@/lib/api-client';
-import type { PurchaseBill, PaginatedResponse, PurchasePayment, PurchaseReceipt } from '@/shared/types';
+import type { PurchaseBill, PurchasePayment, PurchaseReceipt } from '@/shared/types';
 
 // Query Keys
 export const purchaseKeys = {
@@ -26,7 +26,7 @@ export function usePurchaseBills(params: {
 } = {}) {
     return useQuery({
         queryKey: purchaseKeys.billList(params),
-        queryFn: () => apiGet<PaginatedResponse<PurchaseBill>>('/purchases/bills', params),
+        queryFn: () => apiGet<PurchaseBill[]>('/purchases/bills', params),
     });
 }
 
@@ -116,7 +116,7 @@ export function usePurchasePayments(params: {
 } = {}) {
     return useQuery({
         queryKey: [...purchaseKeys.all, 'payments', params],
-        queryFn: () => apiGet<PaginatedResponse<PurchasePayment>>('/purchases/payments', params),
+        queryFn: () => apiGet<PurchasePayment[]>('/purchases/payments', params),
     });
 }
 
@@ -128,7 +128,7 @@ export function usePurchaseReceipts(params: {
 } = {}) {
     return useQuery({
         queryKey: [...purchaseKeys.all, 'receipts', params],
-        queryFn: () => apiGet<PaginatedResponse<PurchaseReceipt>>('/purchases/receipts', params),
+        queryFn: () => apiGet<PurchaseReceipt[]>('/purchases/receipts', params),
     });
 }
 

@@ -8,8 +8,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/ui/providers/auth-provider';
 import { Sidebar } from '@/ui/components/sidebar';
+import { SelectItemModal } from '@/ui/components/select-modals';
 import { useCreateAdjustment } from '@/hooks/use-inventory';
 import { useItems } from '@/hooks/use-master-data';
+import { Item } from '@/shared/types';
 import {
     ArrowLeft,
     Plus,
@@ -31,12 +33,12 @@ interface AdjLine {
 }
 
 const REASON_CODES = [
-    { code: 'DAMAGED', label: 'Damaged' },
-    { code: 'EXPIRED', label: 'Expired' },
-    { code: 'LOST', label: 'Lost' },
-    { code: 'FOUND', label: 'Found' },
-    { code: 'INPUT_ERROR', label: 'Data Entry Error' },
-    { code: 'OTHER', label: 'Other' },
+    { code: 'DAMAGED', label: 'Rusak' },
+    { code: 'EXPIRED', label: 'Kedaluwarsa' },
+    { code: 'LOST', label: 'Hilang' },
+    { code: 'FOUND', label: 'Ditemukan' },
+    { code: 'INPUT_ERROR', label: 'Kesalahan Entri Data' },
+    { code: 'OTHER', label: 'Lainnya' },
 ];
 
 function generateId(): string {
@@ -50,7 +52,7 @@ export default function CreateAdjustmentPage() {
 
     // Master Data
     const { data: itemsData, isLoading: itemsLoading } = useItems({ sellableOnly: false }); // All items
-    const items = itemsData?.data || [];
+    const items = itemsData || [];
 
     // State
     const [adjDate, setAdjDate] = useState(new Date().toISOString().split('T')[0]);
@@ -59,8 +61,8 @@ export default function CreateAdjustmentPage() {
         { id: generateId(), itemId: null, itemSku: '', itemName: '', currentQty: 0, qtyDelta: 0, reasonCode: 'OTHER', memo: '' }
     ]);
 
-    const [itemSearch, setItemSearch] = useState('');
-    const [showItemDropdown, setShowItemDropdown] = useState<string | null>(null);
+    const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+    const [activeLineId, setActiveLineId] = useState<string | null>(null);
 
     // Initial load
     if (authLoading) return null;
@@ -92,7 +94,7 @@ export default function CreateAdjustmentPage() {
         }));
     }
 
-    function selectItem(lineId: string, item: { id: number; sku: string; name: string; onHand?: number }) {
+    function selectItem(lineId: string, item: Item) {
         setLines(lines.map(l => {
             if (l.id === lineId) {
                 return {
@@ -106,8 +108,6 @@ export default function CreateAdjustmentPage() {
             }
             return l;
         }));
-        setShowItemDropdown(null);
-        setItemSearch('');
     }
 
     async function handleSubmit(e: React.FormEvent) {
@@ -115,7 +115,7 @@ export default function CreateAdjustmentPage() {
 
         const validLines = lines.filter(l => l.itemId && l.qtyDelta !== 0);
         if (validLines.length === 0) {
-            alert('Please add at least one item with non-zero adjustment quantity');
+            alert('Harap tambahkan setidaknya satu barang dengan jumlah penyesuaian tidak nol');
             return;
         }
 
@@ -134,14 +134,9 @@ export default function CreateAdjustmentPage() {
 
             router.push(`/inventory/adjustments/${result.id}`);
         } catch (err) {
-            alert(`Failed to create adjustment: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            alert(`Gagal membuat penyesuaian: ${err instanceof Error ? err.message : 'Kesalahan tidak diketahui'}`);
         }
     }
-
-    const filteredItems = items.filter(item =>
-        item.sku.toLowerCase().includes(itemSearch.toLowerCase()) ||
-        item.name.toLowerCase().includes(itemSearch.toLowerCase())
-    );
 
     return (
         <div className="app-layout">
@@ -160,9 +155,9 @@ export default function CreateAdjustmentPage() {
                                 <ArrowLeft size={20} />
                             </button>
                             <div>
-                                <h1 className="page-title">New Inventory Adjustment</h1>
+                                <h1 className="page-title">Penyesuaian Persediaan Baru</h1>
                                 <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                                    Manually adjust stock levels
+                                    Sesuaikan level stok secara manual
                                 </p>
                             </div>
                         </div>
@@ -172,7 +167,7 @@ export default function CreateAdjustmentPage() {
                                 className="btn btn-secondary"
                                 onClick={() => router.push('/inventory/adjustments')}
                             >
-                                Cancel
+                                Batal
                             </button>
                             <button
                                 type="submit"
@@ -184,7 +179,7 @@ export default function CreateAdjustmentPage() {
                                 ) : (
                                     <Save size={18} />
                                 )}
-                                Save Adjustment
+                                Simpan Penyesuaian
                             </button>
                         </div>
                     </div>
@@ -194,7 +189,7 @@ export default function CreateAdjustmentPage() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
                             <div>
                                 <label style={{ display: 'block', marginBottom: 'var(--space-2)', fontSize: '0.875rem', fontWeight: 500 }}>
-                                    Date *
+                                    Tanggal *
                                 </label>
                                 <input
                                     type="date"
@@ -211,20 +206,20 @@ export default function CreateAdjustmentPage() {
                                     type="text"
                                     value={memo}
                                     onChange={(e) => setMemo(e.target.value)}
-                                    placeholder="Reason for adjustment..."
+                                    placeholder="Alasan penyesuaian..."
                                 />
                             </div>
                         </div>
                     </div>
 
                     {/* Line Items */}
-                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div className="card" style={{ padding: 0 }}>
                         <div style={{
                             padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)',
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between'
                         }}>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>
-                                Adjustment Lines
+                                Baris Penyesuaian
                             </h3>
                             <button
                                 type="button"
@@ -233,7 +228,7 @@ export default function CreateAdjustmentPage() {
                                 style={{ padding: 'var(--space-2) var(--space-3)' }}
                             >
                                 <Plus size={16} />
-                                Add Line
+                                Tambah Baris
                             </button>
                         </div>
 
@@ -241,10 +236,10 @@ export default function CreateAdjustmentPage() {
                             <table style={{ minWidth: 900 }}>
                                 <thead>
                                     <tr>
-                                        <th style={{ width: 300 }}>Item</th>
-                                        <th style={{ width: 100, textAlign: 'right' }}>Current Qty</th>
-                                        <th style={{ width: 140, textAlign: 'right' }}>Qty to Adjust (+/-)</th>
-                                        <th style={{ width: 160 }}>Reason Code</th>
+                                        <th style={{ width: 300 }}>Barang</th>
+                                        <th style={{ width: 100, textAlign: 'right' }}>Qty Saat Ini</th>
+                                        <th style={{ width: 140, textAlign: 'right' }}>Qty Penyesuaian (+/-)</th>
+                                        <th style={{ width: 160 }}>Kode Alasan</th>
                                         <th style={{ width: 200 }}>Memo</th>
                                         <th style={{ width: 50 }}></th>
                                     </tr>
@@ -259,70 +254,27 @@ export default function CreateAdjustmentPage() {
                                                         style={{
                                                             position: 'absolute',
                                                             left: 10,
-                                                            top: 12,
+                                                            top: '50%',
+                                                            transform: 'translateY(-50%)',
                                                             color: 'var(--text-muted)',
+                                                            pointerEvents: 'none',
                                                         }}
                                                     />
                                                     <input
                                                         type="text"
-                                                        placeholder="Search item..."
-                                                        value={showItemDropdown === line.id ? itemSearch : (line.itemName || '')}
-                                                        onChange={(e) => {
-                                                            setItemSearch(e.target.value);
-                                                            setShowItemDropdown(line.id);
+                                                        placeholder="Pilih barang..."
+                                                        value={line.itemName || ''}
+                                                        readOnly
+                                                        onClick={() => {
+                                                            setActiveLineId(line.id);
+                                                            setIsItemModalOpen(true);
                                                         }}
-                                                        onFocus={() => {
-                                                            setItemSearch('');
-                                                            setShowItemDropdown(line.id);
+                                                        style={{
+                                                            paddingLeft: 36,
+                                                            cursor: 'pointer',
+                                                            border: !line.itemId ? '1px solid var(--accent-red)' : undefined
                                                         }}
-                                                        style={{ paddingLeft: 36 }}
-                                                        autoComplete="off"
                                                     />
-                                                    {showItemDropdown === line.id && (
-                                                        <div
-                                                            style={{
-                                                                position: 'absolute',
-                                                                top: '100%',
-                                                                left: 0,
-                                                                right: 0,
-                                                                background: 'var(--bg-primary)',
-                                                                border: '1px solid var(--border-color)',
-                                                                borderRadius: 'var(--radius-md)',
-                                                                boxShadow: 'var(--shadow-lg)',
-                                                                zIndex: 100,
-                                                                maxHeight: 250,
-                                                                overflowY: 'auto',
-                                                            }}
-                                                        >
-                                                            {itemsLoading ? (
-                                                                <div style={{ padding: 'var(--space-3)', textAlign: 'center' }}>Loading...</div>
-                                                            ) : filteredItems.length === 0 ? (
-                                                                <div style={{ padding: 'var(--space-3)', color: 'var(--text-muted)', textAlign: 'center' }}>
-                                                                    No items found
-                                                                </div>
-                                                            ) : (
-                                                                filteredItems.map(item => (
-                                                                    <div
-                                                                        key={item.id}
-                                                                        onClick={() => selectItem(line.id, item)}
-                                                                        style={{
-                                                                            padding: 'var(--space-2) var(--space-3)',
-                                                                            cursor: 'pointer',
-                                                                            borderBottom: '1px solid var(--border-color)',
-                                                                        }}
-                                                                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
-                                                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                                                    >
-                                                                        <div style={{ fontWeight: 500 }}>{item.name}</div>
-                                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-                                                                            <span>{item.sku}</span>
-                                                                            <span>OnHand: {item.onHand} {item.uomCode}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                ))
-                                                            )}
-                                                        </div>
-                                                    )}
                                                 </div>
                                             </td>
                                             <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>
@@ -352,7 +304,7 @@ export default function CreateAdjustmentPage() {
                                                     type="text"
                                                     value={line.memo}
                                                     onChange={(e) => updateLine(line.id, 'memo', e.target.value)}
-                                                    placeholder="Optional note"
+                                                    placeholder="Catatan opsional"
                                                 />
                                             </td>
                                             <td>
@@ -375,13 +327,17 @@ export default function CreateAdjustmentPage() {
                 </form>
             </main>
 
-            {/* Click outside to close dropdown */}
-            {showItemDropdown && (
-                <div
-                    style={{ position: 'fixed', inset: 0, zIndex: 50 }}
-                    onClick={() => setShowItemDropdown(null)}
-                />
-            )}
+            {/* Item Selection Modal */}
+            <SelectItemModal
+                isOpen={isItemModalOpen}
+                onClose={() => setIsItemModalOpen(false)}
+                onSelect={(item) => {
+                    if (activeLineId) {
+                        selectItem(activeLineId, item);
+                        setIsItemModalOpen(false);
+                    }
+                }}
+            />
         </div>
     );
 }

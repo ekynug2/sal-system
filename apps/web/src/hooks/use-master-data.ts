@@ -6,7 +6,7 @@
 
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiGet, apiPost } from '@/lib/api-client';
-import type { Customer, Item, Supplier, PaginatedResponse } from '@/shared/types';
+import type { Customer, Item, Supplier } from '@/shared/types';
 import type { CreateCustomerInput, CreateSupplierInput, CreateItemInput } from '@/shared/schemas';
 
 // Query Keys
@@ -31,7 +31,7 @@ export function useCustomers(params: {
     };
     return useQuery({
         queryKey: masterDataKeys.customers(params),
-        queryFn: () => apiGet<PaginatedResponse<Customer>>('/customers', queryParams),
+        queryFn: () => apiGet<Customer[]>('/customers', queryParams),
     });
 }
 
@@ -47,7 +47,7 @@ export function useSuppliers(params: {
     };
     return useQuery({
         queryKey: masterDataKeys.suppliers(params),
-        queryFn: () => apiGet<PaginatedResponse<Supplier>>('/suppliers', queryParams),
+        queryFn: () => apiGet<Supplier[]>('/suppliers', queryParams),
     });
 }
 
@@ -65,7 +65,7 @@ export function useItems(params: {
     };
     return useQuery({
         queryKey: masterDataKeys.items(params),
-        queryFn: () => apiGet<PaginatedResponse<Item>>('/items', queryParams),
+        queryFn: () => apiGet<Item[]>('/items', queryParams),
     });
 }
 

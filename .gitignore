@@ -36,3 +36,4 @@ docker/mysql/data/
 
 # Misc
 *.tgz
+*.md

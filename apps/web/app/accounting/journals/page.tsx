@@ -8,8 +8,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/ui/providers/auth-provider';
 import { Sidebar } from '@/ui/components/sidebar';
+import { ExportPrintToolbar } from '@/ui/components/export-print-toolbar';
 import { useJournalEntries, useCreateJournalEntry, useChartOfAccounts } from '@/hooks/use-accounting';
 import { formatCurrency, formatDate } from '@/lib/api-client';
+import { exportToExcel, exportToCSV, type ExportColumn } from '@/lib/export-utils';
+import { printHTML, generatePrintTable } from '@/lib/print-utils';
 import type { JournalEntry } from '@/shared/types';
 import {
     Plus,
@@ -26,13 +29,13 @@ import { Permissions } from '@/shared/constants';
 
 // Source type labels
 const sourceTypeLabels: Record<string, string> = {
-    MANUAL: 'Manual Entry',
-    SALES_INVOICE: 'Sales Invoice',
-    PURCHASE_BILL: 'Purchase Bill',
-    SALES_PAYMENT: 'Sales Payment',
-    PURCHASE_PAYMENT: 'Purchase Payment',
-    INVENTORY_ADJ: 'Inventory Adjustment',
-    SALES_CREDIT_NOTE: 'Credit Note',
+    MANUAL: 'Entri Manual',
+    SALES_INVOICE: 'Faktur Penjualan',
+    PURCHASE_BILL: 'Tagihan Pembelian',
+    SALES_PAYMENT: 'Pembayaran Penjualan',
+    PURCHASE_PAYMENT: 'Pembayaran Pembelian',
+    INVENTORY_ADJ: 'Penyesuaian Persediaan',
+    SALES_CREDIT_NOTE: 'Nota Kredit',
 };
 
 export default function JournalEntriesPage() {
@@ -66,9 +69,50 @@ export default function JournalEntriesPage() {
         return null;
     }
 
-    const entries = data?.data || [];
-    const total = data?.meta?.total || 0;
-    const totalPages = data?.meta?.totalPages || Math.ceil(total / 20);
+    const entries = data || [];
+    const total = data?.length || 0;
+    const totalPages = Math.ceil(total / 20);
+
+    // Export column definitions
+    const exportColumns: ExportColumn<JournalEntry>[] = [
+        { header: 'No. Entri', accessor: 'entryNo', width: 15 },
+        { header: 'Tanggal', accessor: (row) => formatDate(row.entryDate), width: 12 },
+        { header: 'Sumber', accessor: (row) => sourceTypeLabels[row.sourceType] || row.sourceType, width: 18 },
+        { header: 'Memo', accessor: 'memo', width: 30 },
+        { header: 'Total Debit', accessor: 'totalDebit', width: 15 },
+        { header: 'Total Kredit', accessor: 'totalCredit', width: 15 },
+    ];
+
+    function handleExportExcel() {
+        exportToExcel(entries, exportColumns, {
+            filename: `entri_jurnal_${new Date().toISOString().split('T')[0]}`,
+            sheetName: 'Entri Jurnal',
+        });
+    }
+
+    function handleExportCSV() {
+        exportToCSV(entries, exportColumns, {
+            filename: `entri_jurnal_${new Date().toISOString().split('T')[0]}`,
+        });
+    }
+
+    function handlePrint() {
+        const printColumns = [
+            { header: 'No. Entri', accessor: 'entryNo' as keyof JournalEntry },
+            { header: 'Tanggal', accessor: (row: JournalEntry) => formatDate(row.entryDate) },
+            { header: 'Sumber', accessor: (row: JournalEntry) => sourceTypeLabels[row.sourceType] || row.sourceType },
+            { header: 'Memo', accessor: 'memo' as keyof JournalEntry },
+            { header: 'Debit', accessor: (row: JournalEntry) => formatCurrency(row.totalDebit), className: 'money' },
+            { header: 'Kredit', accessor: (row: JournalEntry) => formatCurrency(row.totalCredit), className: 'money' },
+        ];
+
+        const html = generatePrintTable(entries, printColumns, {
+            title: 'Entri Jurnal',
+            subtitle: sourceType ? `Sumber: ${sourceTypeLabels[sourceType]}` : 'Semua Entri',
+        });
+
+        printHTML(html, 'Entri Jurnal');
+    }
 
     return (
         <div className="app-layout">
@@ -77,16 +121,23 @@ export default function JournalEntriesPage() {
                 {/* Header */}
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Journal Entries</h1>
+                        <h1 className="page-title">Entri Jurnal</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            View all accounting journal entries
+                            Lihat semua entri jurnal akuntansi
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        <ExportPrintToolbar
+                            onPrint={handlePrint}
+                            onExportExcel={handleExportExcel}
+                            onExportCSV={handleExportCSV}
+                            showPrint={entries.length > 0}
+                            showExport={entries.length > 0}
+                        />
                         {hasPermission(Permissions.JOURNAL_MANUAL_CREATE) && (
                             <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
                                 <Plus size={18} />
-                                Manual Entry
+                                Entri Manual
                             </button>
                         )}
                     </div>
@@ -96,7 +147,7 @@ export default function JournalEntriesPage() {
                 <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                            <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>From:</label>
+                            <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Dari:</label>
                             <input
                                 type="date"
                                 value={dateFrom}
@@ -105,7 +156,7 @@ export default function JournalEntriesPage() {
                             />
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                            <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>To:</label>
+                            <label style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Sampai:</label>
                             <input
                                 type="date"
                                 value={dateTo}
@@ -118,13 +169,13 @@ export default function JournalEntriesPage() {
                             onChange={(e) => setSourceType(e.target.value)}
                             style={{ width: 180 }}
                         >
-                            <option value="">All Sources</option>
-                            <option value="MANUAL">Manual Entry</option>
-                            <option value="SALES_INVOICE">Sales Invoice</option>
-                            <option value="PURCHASE_BILL">Purchase Bill</option>
-                            <option value="SALES_PAYMENT">Sales Payment</option>
-                            <option value="PURCHASE_PAYMENT">Purchase Payment</option>
-                            <option value="INVENTORY_ADJ">Inventory Adjustment</option>
+                            <option value="">Semua Sumber</option>
+                            <option value="MANUAL">Entri Manual</option>
+                            <option value="SALES_INVOICE">Faktur Penjualan</option>
+                            <option value="PURCHASE_BILL">Tagihan Pembelian</option>
+                            <option value="SALES_PAYMENT">Pembayaran Penjualan</option>
+                            <option value="PURCHASE_PAYMENT">Pembayaran Pembelian</option>
+                            <option value="INVENTORY_ADJ">Penyesuaian Persediaan</option>
                         </select>
                         <button
                             className="btn btn-secondary btn-sm"
@@ -135,7 +186,7 @@ export default function JournalEntriesPage() {
                                 setPage(1);
                             }}
                         >
-                            Clear Filters
+                            Hapus Filter
                         </button>
                     </div>
                 </div>
@@ -146,25 +197,25 @@ export default function JournalEntriesPage() {
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Loader2 className="animate-spin" size={32} />
                             <p style={{ marginTop: 'var(--space-2)', color: 'var(--text-muted)' }}>
-                                Loading entries...
+                                Memuat entri...
                             </p>
                         </div>
                     ) : entries.length === 0 ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <BookOpen size={48} style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-2)' }} />
-                            <p style={{ color: 'var(--text-muted)' }}>No journal entries found</p>
+                            <p style={{ color: 'var(--text-muted)' }}>Tidak ada entri jurnal ditemukan</p>
                         </div>
                     ) : (
                         <>
                             <table>
                                 <thead>
                                     <tr>
-                                        <th style={{ width: 120 }}>Entry No</th>
-                                        <th style={{ width: 100 }}>Date</th>
-                                        <th style={{ width: 150 }}>Source</th>
+                                        <th style={{ width: 120 }}>No. Entri</th>
+                                        <th style={{ width: 100 }}>Tanggal</th>
+                                        <th style={{ width: 150 }}>Sumber</th>
                                         <th>Memo</th>
                                         <th style={{ width: 140, textAlign: 'right' }}>Debit</th>
-                                        <th style={{ width: 140, textAlign: 'right' }}>Credit</th>
+                                        <th style={{ width: 140, textAlign: 'right' }}>Kredit</th>
                                         <th style={{ width: 60 }}></th>
                                     </tr>
                                 </thead>
@@ -193,7 +244,7 @@ export default function JournalEntriesPage() {
                                                 <button
                                                     className="btn btn-ghost btn-sm"
                                                     onClick={() => setSelectedEntry(entry)}
-                                                    title="View Details"
+                                                    title="Lihat Detail"
                                                 >
                                                     <Eye size={16} />
                                                 </button>
@@ -212,7 +263,7 @@ export default function JournalEntriesPage() {
                                 alignItems: 'center',
                             }}>
                                 <div style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                                    Showing {((page - 1) * 20) + 1} - {Math.min(page * 20, total)} of {total}
+                                    Menampilkan {((page - 1) * 20) + 1} - {Math.min(page * 20, total)} dari {total}
                                 </div>
                                 <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                                     <button
@@ -223,7 +274,7 @@ export default function JournalEntriesPage() {
                                         <ChevronLeft size={16} />
                                     </button>
                                     <span style={{ display: 'flex', alignItems: 'center', padding: '0 var(--space-3)' }}>
-                                        Page {page} of {totalPages}
+                                        Halaman {page} dari {totalPages}
                                     </span>
                                     <button
                                         className="btn btn-secondary btn-sm"
@@ -267,17 +318,17 @@ function JournalDetailModal({ entry, onClose }: { entry: JournalEntry; onClose: 
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 700 }}>
                 <div className="modal-header">
-                    <h2>Journal Entry: {entry.entryNo}</h2>
+                    <h2>Entri Jurnal: {entry.entryNo}</h2>
                     <button className="btn btn-ghost" onClick={onClose}><X size={20} /></button>
                 </div>
                 <div className="modal-body">
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
                         <div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Entry Date</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tanggal Entri</div>
                             <div style={{ fontWeight: 500 }}>{formatDate(entry.entryDate)}</div>
                         </div>
                         <div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Source</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sumber</div>
                             <div style={{ fontWeight: 500 }}>
                                 {sourceTypeLabels[entry.sourceType] || entry.sourceType}
                                 {entry.sourceId && ` #${entry.sourceId}`}
@@ -294,9 +345,9 @@ function JournalDetailModal({ entry, onClose }: { entry: JournalEntry; onClose: 
                     <table>
                         <thead>
                             <tr>
-                                <th>Account</th>
+                                <th>Akun</th>
                                 <th style={{ width: 140, textAlign: 'right' }}>Debit</th>
-                                <th style={{ width: 140, textAlign: 'right' }}>Credit</th>
+                                <th style={{ width: 140, textAlign: 'right' }}>Kredit</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -336,7 +387,7 @@ function JournalDetailModal({ entry, onClose }: { entry: JournalEntry; onClose: 
                     </table>
                 </div>
                 <div className="modal-footer">
-                    <button className="btn btn-secondary" onClick={onClose}>Close</button>
+                    <button className="btn btn-secondary" onClick={onClose}>Tutup</button>
                 </div>
             </div>
         </div>
@@ -379,13 +430,13 @@ function CreateJournalModal({ onClose, onSuccess }: { onClose: () => void; onSuc
         e.preventDefault();
 
         if (!isBalanced) {
-            alert('Journal entry must be balanced (Debits = Credits)');
+            alert('Entri jurnal harus seimbang (Debit = Kredit)');
             return;
         }
 
         const validLines = lines.filter(l => l.accountId && l.amount > 0);
         if (validLines.length < 2) {
-            alert('At least two lines are required');
+            alert('Minimal dua baris diperlukan');
             return;
         }
 
@@ -402,7 +453,7 @@ function CreateJournalModal({ onClose, onSuccess }: { onClose: () => void; onSuc
             });
             onSuccess();
         } catch (err) {
-            alert(`Failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            alert(`Gagal: ${err instanceof Error ? err.message : 'Kesalahan tidak diketahui'}`);
         }
     };
 
@@ -410,14 +461,14 @@ function CreateJournalModal({ onClose, onSuccess }: { onClose: () => void; onSuc
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 800 }}>
                 <div className="modal-header">
-                    <h2>Create Manual Journal Entry</h2>
+                    <h2>Buat Entri Jurnal Manual</h2>
                     <button className="btn btn-ghost" onClick={onClose}><X size={20} /></button>
                 </div>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--space-4)' }}>
                             <div>
-                                <label className="label">Entry Date *</label>
+                                <label className="label">Tanggal Entri *</label>
                                 <input
                                     type="date"
                                     required
@@ -431,7 +482,7 @@ function CreateJournalModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                     type="text"
                                     value={memo}
                                     onChange={e => setMemo(e.target.value)}
-                                    placeholder="Description of this journal entry..."
+                                    placeholder="Deskripsi entri jurnal ini..."
                                 />
                             </div>
                         </div>
@@ -440,10 +491,10 @@ function CreateJournalModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                             <table>
                                 <thead>
                                     <tr>
-                                        <th style={{ width: 300 }}>Account</th>
-                                        <th style={{ width: 80 }}>D/C</th>
-                                        <th style={{ width: 140 }}>Amount</th>
-                                        <th>Line Memo</th>
+                                        <th style={{ width: 300 }}>Akun</th>
+                                        <th style={{ width: 80 }}>D/K</th>
+                                        <th style={{ width: 140 }}>Jumlah</th>
+                                        <th>Memo Baris</th>
                                         <th style={{ width: 40 }}></th>
                                     </tr>
                                 </thead>
@@ -456,7 +507,7 @@ function CreateJournalModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                                     onChange={e => updateLine(line.id, 'accountId', e.target.value)}
                                                     required
                                                 >
-                                                    <option value="">Select account...</option>
+                                                    <option value="">Pilih akun...</option>
                                                     {postableAccounts.map(a => (
                                                         <option key={a.id} value={a.id}>
                                                             {a.accountCode} - {a.accountName}
@@ -488,7 +539,7 @@ function CreateJournalModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                                     type="text"
                                                     value={line.memo}
                                                     onChange={e => updateLine(line.id, 'memo', e.target.value)}
-                                                    placeholder="Optional..."
+                                                    placeholder="Opsional..."
                                                 />
                                             </td>
                                             <td>
@@ -509,19 +560,19 @@ function CreateJournalModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                                     <tr style={{ background: 'var(--bg-secondary)' }}>
                                         <td>
                                             <button type="button" className="btn btn-secondary btn-sm" onClick={addLine}>
-                                                <Plus size={16} /> Add Line
+                                                <Plus size={16} /> Tambah Baris
                                             </button>
                                         </td>
                                         <td style={{ fontWeight: 600 }}>
                                             {isBalanced ? (
-                                                <span style={{ color: 'var(--accent-green)' }}>✓ Balanced</span>
+                                                <span style={{ color: 'var(--accent-green)' }}>✓ Seimbang</span>
                                             ) : (
-                                                <span style={{ color: 'var(--accent-red)' }}>✗ Unbalanced</span>
+                                                <span style={{ color: 'var(--accent-red)' }}>✗ Tidak Seimbang</span>
                                             )}
                                         </td>
                                         <td colSpan={3} style={{ textAlign: 'right' }}>
                                             <div>Debit: <strong>{formatCurrency(totalDebit)}</strong></div>
-                                            <div>Credit: <strong>{formatCurrency(totalCredit)}</strong></div>
+                                            <div>Kredit: <strong>{formatCurrency(totalCredit)}</strong></div>
                                         </td>
                                     </tr>
                                 </tfoot>
@@ -529,14 +580,14 @@ function CreateJournalModal({ onClose, onSuccess }: { onClose: () => void; onSuc
                         </div>
                     </div>
                     <div className="modal-footer">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+                        <button type="button" className="btn btn-secondary" onClick={onClose}>Batal</button>
                         <button
                             type="submit"
                             className="btn btn-primary"
                             disabled={createJournal.isPending || !isBalanced}
                         >
                             {createJournal.isPending ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                            Create Entry
+                            Buat Entri
                         </button>
                     </div>
                 </form>

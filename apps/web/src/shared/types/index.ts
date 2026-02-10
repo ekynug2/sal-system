@@ -578,3 +578,22 @@ export interface BalanceSheet {
     }[];
     totalEquity: number;
 }
+
+// -----------------------------------------------------------------------------
+// Settings / Audit Types
+// -----------------------------------------------------------------------------
+
+export interface AuditLog {
+    id: number;
+    actorUserId: number;
+    actorName?: string;
+    action: string;
+    entityType: string;
+    entityId: number;
+    occurredAt: string;
+    beforeJson?: string;
+    afterJson?: string;
+    metaJson?: string;
+    ipAddress?: string;
+    userAgent?: string;
+}

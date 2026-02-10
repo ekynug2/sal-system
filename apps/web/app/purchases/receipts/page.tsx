@@ -55,16 +55,16 @@ export default function PurchaseReceiptsPage() {
                 <Sidebar />
                 <main className="main-content">
                     <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                        <h3>Permission Denied</h3>
-                        <p>You do not have permission to view purchase receipts.</p>
+                        <h3>Akses Ditolak</h3>
+                        <p>Anda tidak memiliki izin untuk melihat penerimaan pembelian.</p>
                     </div>
                 </main>
             </div>
         );
     }
 
-    const receipts = data?.data || [];
-    const meta = data?.meta;
+    const receipts = data || [];
+    // TODO: Re-implement pagination when API client returns meta
 
     return (
         <div className="app-layout">
@@ -72,14 +72,14 @@ export default function PurchaseReceiptsPage() {
             <main className="main-content">
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Purchase Receipts</h1>
+                        <h1 className="page-title">Penerimaan Pembelian</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            Manage received goods and services
+                            Kelola penerimaan barang dan jasa
                         </p>
                     </div>
                     <button className="btn btn-primary" onClick={() => router.push('/purchases/receipts/new')}>
                         <Plus size={18} />
-                        New Receipt
+                        Penerimaan Baru
                     </button>
                 </div>
 
@@ -95,11 +95,12 @@ export default function PurchaseReceiptsPage() {
                                     top: '50%',
                                     transform: 'translateY(-50%)',
                                     color: 'var(--text-muted)',
+                                    pointerEvents: 'none',
                                 }}
                             />
                             <input
                                 type="text"
-                                placeholder="Search by receipt number or supplier..."
+                                placeholder="Cari berdasarkan nomor penerimaan atau pemasok..."
                                 onChange={() => {
                                     // Implement search if hook supports it
                                 }}
@@ -111,10 +112,10 @@ export default function PurchaseReceiptsPage() {
                             onChange={(e) => setStatusFilter(e.target.value)}
                             style={{ width: 180 }}
                         >
-                            <option value="">All Status</option>
+                            <option value="">Semua Status</option>
                             <option value="DRAFT">Draft</option>
-                            <option value="POSTED">Posted</option>
-                            <option value="VOIDED">Voided</option>
+                            <option value="POSTED">Diposting</option>
+                            <option value="VOIDED">Dibatalkan</option>
                         </select>
                         <button className="btn btn-secondary">
                             <Filter size={18} />
@@ -128,18 +129,18 @@ export default function PurchaseReceiptsPage() {
                     {isLoading ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto' }} />
-                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Loading receipts...</p>
+                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Memuat penerimaan...</p>
                         </div>
                     ) : error ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                            Failed to load receipts. Please try again.
+                            Gagal memuat penerimaan. Silakan coba lagi.
                         </div>
                     ) : receipts.length === 0 ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <FileText size={48} style={{ color: 'var(--text-muted)', margin: '0 auto' }} />
-                            <h3 style={{ marginTop: 'var(--space-4)' }}>No receipts found</h3>
+                            <h3 style={{ marginTop: 'var(--space-4)' }}>Tidak ada penerimaan ditemukan</h3>
                             <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-2)' }}>
-                                Create your first purchase receipt to get started
+                                Buat penerimaan pembelian pertama Anda untuk memulai
                             </p>
                             <button
                                 className="btn btn-primary"
@@ -147,7 +148,7 @@ export default function PurchaseReceiptsPage() {
                                 onClick={() => router.push('/purchases/receipts/new')}
                             >
                                 <Plus size={18} />
-                                New Receipt
+                                Penerimaan Baru
                             </button>
                         </div>
                     ) : (
@@ -156,10 +157,10 @@ export default function PurchaseReceiptsPage() {
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>Receipt #</th>
-                                            <th>Date</th>
-                                            <th>Supplier</th>
-                                            <th>Reference</th>
+                                            <th>No. Penerimaan</th>
+                                            <th>Tanggal</th>
+                                            <th>Pemasok</th>
+                                            <th>Referensi</th>
                                             <th>Status</th>
                                             <th style={{ width: 50 }}></th>
                                         </tr>
@@ -203,8 +204,8 @@ export default function PurchaseReceiptsPage() {
                                 </table>
                             </div>
 
-                            {/* Pagination */}
-                            {meta && (
+                            {/* Pagination - TODO: Re-implement when API returns meta */}
+                            {receipts.length > 0 && (
                                 <div
                                     style={{
                                         display: 'flex',
@@ -215,8 +216,7 @@ export default function PurchaseReceiptsPage() {
                                     }}
                                 >
                                     <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                        Showing {(page - 1) * meta.limit + 1} - {Math.min(page * meta.limit, meta.total)} of{' '}
-                                        {meta.total} records
+                                        Menampilkan {receipts.length} data
                                     </span>
                                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                                         <button
@@ -234,12 +234,12 @@ export default function PurchaseReceiptsPage() {
                                                 fontWeight: 500,
                                             }}
                                         >
-                                            {page} / {meta.totalPages}
+                                            Halaman {page}
                                         </span>
                                         <button
                                             className="btn btn-secondary"
-                                            onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                                            disabled={page >= meta.totalPages}
+                                            onClick={() => setPage((p) => p + 1)}
+                                            disabled={receipts.length < 20}
                                         >
                                             <ChevronRight size={18} />
                                         </button>

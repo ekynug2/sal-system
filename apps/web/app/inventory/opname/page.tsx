@@ -56,16 +56,16 @@ export default function StockOpnamePage() {
                 <Sidebar />
                 <main className="main-content">
                     <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                        <h3>Permission Denied</h3>
-                        <p>You do not have permission to view stock opname.</p>
+                        <h3>Akses Ditolak</h3>
+                        <p>Anda tidak memiliki izin untuk melihat stok opname.</p>
                     </div>
                 </main>
             </div>
         );
     }
 
-    const sessions = data?.data || [];
-    const meta = data?.meta;
+    const sessions = data || [];
+    // TODO: Re-implement pagination when API client returns meta
 
     return (
         <div className="app-layout">
@@ -73,15 +73,15 @@ export default function StockOpnamePage() {
             <main className="main-content">
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Stock Opname</h1>
+                        <h1 className="page-title">Stok Opname</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            Manage physical inventory counting sessions
+                            Kelola sesi perhitungan fisik persediaan
                         </p>
                     </div>
                     {user.permissions.includes(Permissions.INVENTORY_OPNAME_CREATE) && (
                         <button className="btn btn-primary" onClick={() => router.push('/inventory/opname/new')}>
                             <Plus size={18} />
-                            New Session
+                            Sesi Baru
                         </button>
                     )}
                 </div>
@@ -102,7 +102,7 @@ export default function StockOpnamePage() {
                             />
                             <input
                                 type="text"
-                                placeholder="Search by session number..."
+                                placeholder="Cari berdasarkan nomor sesi..."
                                 onChange={() => {
                                     // Implement search
                                 }}
@@ -121,23 +121,23 @@ export default function StockOpnamePage() {
                     {isLoading ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto' }} />
-                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Loading sessions...</p>
+                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Memuat sesi...</p>
                         </div>
                     ) : error ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                            Failed to load opname sessions. Please try again.
+                            Gagal memuat sesi stok opname. Silakan coba lagi.
                         </div>
                     ) : sessions.length === 0 ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <FileText size={48} style={{ color: 'var(--text-muted)', margin: '0 auto' }} />
-                            <h3 style={{ marginTop: 'var(--space-4)' }}>No sessions found</h3>
+                            <h3 style={{ marginTop: 'var(--space-4)' }}>Tidak ada sesi ditemukan</h3>
                             <button
                                 className="btn btn-primary"
                                 style={{ marginTop: 'var(--space-4)' }}
                                 onClick={() => router.push('/inventory/opname/new')}
                             >
                                 <Plus size={18} />
-                                New Session
+                                Sesi Baru
                             </button>
                         </div>
                     ) : (
@@ -146,11 +146,11 @@ export default function StockOpnamePage() {
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>Session #</th>
-                                            <th>Date</th>
-                                            <th>Location</th>
+                                            <th>No Sesi</th>
+                                            <th>Tanggal</th>
+                                            <th>Lokasi</th>
                                             <th>Status</th>
-                                            <th>Items</th>
+                                            <th>Barang</th>
                                             <th style={{ width: 50 }}></th>
                                         </tr>
                                     </thead>
@@ -175,7 +175,7 @@ export default function StockOpnamePage() {
                                                         {session.status}
                                                     </span>
                                                 </td>
-                                                <td>{session.items?.length || 0} items</td>
+                                                <td>{session.items?.length || 0} barang</td>
                                                 <td>
                                                     <button
                                                         className="btn btn-ghost"
@@ -193,8 +193,8 @@ export default function StockOpnamePage() {
                                 </table>
                             </div>
 
-                            {/* Pagination */}
-                            {meta && (
+                            {/* Pagination - TODO: Re-implement when API returns meta */}
+                            {sessions.length > 0 && (
                                 <div
                                     style={{
                                         display: 'flex',
@@ -205,8 +205,7 @@ export default function StockOpnamePage() {
                                     }}
                                 >
                                     <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                        Showing {(page - 1) * meta.limit + 1} - {Math.min(page * meta.limit, meta.total)} of{' '}
-                                        {meta.total} sessions
+                                        Menampilkan {sessions.length} sesi
                                     </span>
                                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                                         <button
@@ -224,12 +223,12 @@ export default function StockOpnamePage() {
                                                 fontWeight: 500,
                                             }}
                                         >
-                                            {page} / {meta.totalPages}
+                                            Halaman {page}
                                         </span>
                                         <button
                                             className="btn btn-secondary"
-                                            onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                                            disabled={page >= meta.totalPages}
+                                            onClick={() => setPage((p) => p + 1)}
+                                            disabled={sessions.length < 20}
                                         >
                                             <ChevronRight size={18} />
                                         </button>

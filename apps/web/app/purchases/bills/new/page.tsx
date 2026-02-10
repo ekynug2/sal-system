@@ -9,9 +9,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/ui/providers/auth-provider';
 import { Sidebar } from '@/ui/components/sidebar';
 import { useCreatePurchaseBill } from '@/hooks/use-purchases';
-import { useItems, useSuppliers } from '@/hooks/use-master-data';
 import { formatCurrency } from '@/lib/api-client';
-import type { Item } from '@/shared/types';
+import type { Item, Supplier } from '@/shared/types';
 import {
     ArrowLeft,
     Plus,
@@ -20,6 +19,7 @@ import {
     Loader2,
     Search,
 } from 'lucide-react';
+import { SelectSupplierModal, SelectItemModal } from '@/ui/components/select-modals';
 
 interface BillLine {
     id: string;
@@ -42,16 +42,8 @@ export default function CreateBillPage() {
     const { user, isLoading: authLoading } = useAuth();
     const createBill = useCreatePurchaseBill();
 
-    // Master Data
-    const { data: itemsData } = useItems({ sellableOnly: false });
-    const { data: suppliersData } = useSuppliers();
-
-    const items = itemsData?.data || [];
-    const suppliers = suppliersData?.data || [];
-
     // State
-    const [supplierId, setSupplierId] = useState<number | null>(null);
-    const [supplierSearch, setSupplierSearch] = useState('');
+    const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
     const [supplierInvoiceNo, setSupplierInvoiceNo] = useState('');
     const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0]);
     const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
@@ -60,9 +52,9 @@ export default function CreateBillPage() {
         { id: generateId(), itemId: null, itemSku: '', itemName: '', description: '', qty: 1, unitCost: 0, taxCode: 'PPN', memo: '' }
     ]);
 
-    const [itemSearch, setItemSearch] = useState('');
+    const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+    const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [activeLineId, setActiveLineId] = useState<string | null>(null);
-    const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
 
     if (authLoading) return null;
     if (!user) { router.push('/login'); return null; }
@@ -88,14 +80,12 @@ export default function CreateBillPage() {
                     itemId: item.id,
                     itemSku: item.sku,
                     itemName: item.name,
-                    description: item.name, // Default desc
+                    description: '', // Default desc empty
                     unitCost: 0, // Should be last purchase price, ideally
                 };
             }
             return l;
         }));
-        setActiveLineId(null);
-        setItemSearch('');
     }
 
     // Calculations
@@ -108,14 +98,14 @@ export default function CreateBillPage() {
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!supplierId) { alert('Please select a supplier'); return; }
+        if (!selectedSupplier) { alert('Silakan pilih pemasok'); return; }
 
         const validLines = lines.filter(l => l.itemId && l.qty > 0 && l.unitCost >= 0);
-        if (validLines.length === 0) { alert('Please add at least one valid item'); return; }
+        if (validLines.length === 0) { alert('Silakan tambahkan setidaknya satu barang yang valid'); return; }
 
         try {
             const result = await createBill.mutateAsync({
-                supplierId,
+                supplierId: selectedSupplier.id,
                 supplierInvoiceNo: supplierInvoiceNo || undefined,
                 billDate,
                 dueDate,
@@ -131,19 +121,12 @@ export default function CreateBillPage() {
             });
             router.push(`/purchases/bills/${result.id}`);
         } catch (err) {
-            alert(`Failed to create bill: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            alert(`Gagal membuat tagihan: ${err instanceof Error ? err.message : 'Kesalahan tidak diketahui'}`);
         }
     }
 
-    const filteredSuppliers = suppliers.filter(s =>
-        s.name.toLowerCase().includes(supplierSearch.toLowerCase()) ||
-        s.supplierCode.toLowerCase().includes(supplierSearch.toLowerCase())
-    );
 
-    const filteredItems = items.filter(i =>
-        i.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
-        i.sku.toLowerCase().includes(itemSearch.toLowerCase())
-    );
+
 
     return (
         <div className="app-layout">
@@ -156,143 +139,115 @@ export default function CreateBillPage() {
                             <button type="button" className="btn btn-ghost" onClick={() => router.push('/purchases/bills')}>
                                 <ArrowLeft size={20} />
                             </button>
-                            <h1 className="page-title">New Purchase Bill</h1>
+                            <h1 className="page-title">Tagihan Pembelian Baru</h1>
                         </div>
                         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                            <button type="button" className="btn btn-secondary" onClick={() => router.push('/purchases/bills')}>Cancel</button>
+                            <button type="button" className="btn btn-secondary" onClick={() => router.push('/purchases/bills')}>Batal</button>
                             <button type="submit" className="btn btn-primary" disabled={createBill.isPending}>
                                 {createBill.isPending ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                                Save Draft
+                                Simpan Draft
                             </button>
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--space-6)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-6)' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
 
                             {/* Supplier & Info */}
                             <div className="card" style={{ padding: 'var(--space-5)' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                                     <div style={{ position: 'relative' }}>
-                                        <label className="label">Supplier *</label>
+                                        <label className="label">Pemasok *</label>
                                         <div style={{ position: 'relative' }}>
-                                            <Search size={16} style={{ position: 'absolute', left: 10, top: 12, color: 'var(--text-muted)' }} />
+                                            <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                                             <input
                                                 type="text"
-                                                placeholder="Search supplier..."
-                                                value={supplierSearch}
-                                                onChange={(e) => { setSupplierSearch(e.target.value); setShowSupplierDropdown(true); }}
-                                                onFocus={() => { setSupplierSearch(''); setShowSupplierDropdown(true); }}
+                                                placeholder="Pilih pemasok..."
+                                                value={selectedSupplier?.name || ''}
+                                                readOnly
+                                                onClick={() => setIsSupplierModalOpen(true)}
                                                 className="input pl-9"
+                                                style={{ cursor: 'pointer' }}
                                             />
-                                            {showSupplierDropdown && (
-                                                <div className="dropdown-menu">
-                                                    {filteredSuppliers.map(s => (
-                                                        <div key={s.id} className="dropdown-item" onClick={() => {
-                                                            setSupplierId(s.id);
-                                                            setSupplierSearch(s.name);
-                                                            setShowSupplierDropdown(false);
-                                                            // Set default terms if available
-                                                            if (s.termsDays) {
-                                                                const d = new Date(billDate);
-                                                                d.setDate(d.getDate() + s.termsDays);
-                                                                setDueDate(d.toISOString().split('T')[0]);
-                                                            }
-                                                        }}>
-                                                            <div style={{ fontWeight: 500 }}>{s.name}</div>
-                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.supplierCode}</div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="label">Supplier Invoice No</label>
+                                        <label className="label">No. Faktur Pemasok</label>
                                         <input
                                             type="text"
                                             className="input"
                                             value={supplierInvoiceNo}
                                             onChange={e => setSupplierInvoiceNo(e.target.value)}
-                                            placeholder="e.g. INV-2023-001"
+                                            placeholder="cth. INV-2023-001"
                                         />
                                     </div>
                                     <div>
-                                        <label className="label">Bill Date *</label>
+                                        <label className="label">Tanggal Tagihan *</label>
                                         <input type="date" className="input" value={billDate} onChange={e => setBillDate(e.target.value)} required />
                                     </div>
                                     <div>
-                                        <label className="label">Due Date *</label>
+                                        <label className="label">Tanggal Jatuh Tempo *</label>
                                         <input type="date" className="input" value={dueDate} onChange={e => setDueDate(e.target.value)} required />
                                     </div>
                                 </div>
                             </div>
 
                             {/* Lines */}
-                            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                            <div className="card" style={{ padding: 0 }}>
                                 <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between' }}>
-                                    <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Items</h3>
-                                    <button type="button" className="btn btn-secondary btn-sm" onClick={addLine}><Plus size={16} /> Add Item</button>
+                                    <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Barang</h3>
+                                    <button type="button" className="btn btn-secondary btn-sm" onClick={addLine}><Plus size={16} /> Tambah Barang</button>
                                 </div>
                                 <div style={{ overflowX: 'auto' }}>
-                                    <table style={{ minWidth: 900 }}>
+                                    <table style={{ minWidth: '100%' }}>
                                         <thead>
                                             <tr>
-                                                <th style={{ width: 300 }}>Item</th>
-                                                <th style={{ width: 80, textAlign: 'right' }}>Qty</th>
-                                                <th style={{ width: 120, textAlign: 'right' }}>Cost</th>
-                                                <th style={{ width: 100 }}>Tax</th>
-                                                <th style={{ width: 120, textAlign: 'right' }}>Total</th>
-                                                <th style={{ width: 50 }}></th>
+                                                <th style={{ width: '25%' }}>Barang</th>
+                                                <th style={{ width: '25%' }}>Deskripsi</th>
+                                                <th style={{ width: '10%', textAlign: 'right' }}>Qty</th>
+                                                <th style={{ width: '15%', textAlign: 'right' }}>Biaya</th>
+                                                <th style={{ width: '10%' }}>Pajak</th>
+                                                <th style={{ width: '10%', textAlign: 'right' }}>Total</th>
+                                                <th style={{ width: '5%' }}></th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {lines.map(line => (
                                                 <tr key={line.id} style={{ verticalAlign: 'top' }}>
                                                     <td style={{ position: 'relative' }}>
-                                                        <Search size={16} style={{ position: 'absolute', left: 10, top: 12, color: 'var(--text-muted)' }} />
+                                                        <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                                                         <input
                                                             type="text"
-                                                            placeholder="Select item..."
-                                                            value={activeLineId === line.id ? itemSearch : line.itemName}
-                                                            onChange={e => { setItemSearch(e.target.value); setActiveLineId(line.id); }}
-                                                            onFocus={() => { setItemSearch(''); setActiveLineId(line.id); }}
-                                                            className="input pl-9"
-                                                            style={{ border: !line.itemId ? '1px solid var(--accent-red)' : undefined }}
+                                                            placeholder="Pilih barang..."
+                                                            value={line.itemName}
+                                                            readOnly
+                                                            onClick={() => { setActiveLineId(line.id); setIsItemModalOpen(true); }}
+                                                            className="input pl-9 w-full"
+                                                            style={{
+                                                                border: !line.itemId ? '1px solid var(--accent-red)' : undefined,
+                                                                cursor: 'pointer'
+                                                            }}
                                                         />
-                                                        {activeLineId === line.id && (
-                                                            <div className="dropdown-menu" style={{ width: 400 }}>
-                                                                {filteredItems.slice(0, 10).map(item => (
-                                                                    <div key={item.id} className="dropdown-item" onClick={() => selectItem(line.id, item)}>
-                                                                        <div style={{ fontWeight: 500 }}>{item.name}</div>
-                                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between' }}>
-                                                                            <span>{item.sku}</span>
-                                                                            <span>Stock: {item.onHand}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                        {line.itemName && (
-                                                            <input
-                                                                type="text"
-                                                                className="input mt-1 text-sm text-gray-500"
-                                                                value={line.description}
-                                                                onChange={e => updateLine(line.id, 'description', e.target.value)}
-                                                                placeholder="Description"
-                                                            />
-                                                        )}
                                                     </td>
                                                     <td>
-                                                        <input type="number" className="input text-right" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))} min={0} />
+                                                        <input
+                                                            type="text"
+                                                            className="input w-full px-2"
+                                                            value={line.description}
+                                                            onChange={e => updateLine(line.id, 'description', e.target.value)}
+                                                            placeholder="Deskripsi"
+                                                        />
                                                     </td>
                                                     <td>
-                                                        <input type="number" className="input text-right" value={line.unitCost} onChange={e => updateLine(line.id, 'unitCost', Number(e.target.value))} min={0} />
+                                                        <input type="number" className="input text-right w-full px-2" value={line.qty} onChange={e => updateLine(line.id, 'qty', Number(e.target.value))} min={0} />
                                                     </td>
                                                     <td>
-                                                        <select className="input" value={line.taxCode} onChange={e => updateLine(line.id, 'taxCode', e.target.value)}>
+                                                        <input type="number" className="input text-right w-full px-2" value={line.unitCost} onChange={e => updateLine(line.id, 'unitCost', Number(e.target.value))} min={0} />
+                                                    </td>
+                                                    <td>
+                                                        <select className="input w-full px-2" value={line.taxCode} onChange={e => updateLine(line.id, 'taxCode', e.target.value)}>
                                                             <option value="PPN">PPN (11%)</option>
-                                                            <option value="NON">Non-Tax</option>
+                                                            <option value="NON">Tanpa Pajak</option>
                                                         </select>
                                                     </td>
                                                     <td style={{ textAlign: 'right', paddingTop: 'var(--space-3)' }}>
@@ -308,19 +263,19 @@ export default function CreateBillPage() {
                                         </tbody>
                                         <tfoot>
                                             <tr style={{ background: 'var(--bg-secondary)', fontWeight: 600 }}>
-                                                <td colSpan={4} style={{ textAlign: 'right' }}>Subtotal</td>
+                                                <td colSpan={5} style={{ textAlign: 'right' }}>Subtotal</td>
                                                 <td style={{ textAlign: 'right' }}>{formatCurrency(subtotal)}</td>
                                                 <td></td>
                                             </tr>
                                             {taxTotal > 0 && (
                                                 <tr style={{ background: 'var(--bg-secondary)', fontWeight: 600 }}>
-                                                    <td colSpan={4} style={{ textAlign: 'right' }}>Tax (11%)</td>
+                                                    <td colSpan={5} style={{ textAlign: 'right' }}>Pajak (11%)</td>
                                                     <td style={{ textAlign: 'right' }}>{formatCurrency(taxTotal)}</td>
                                                     <td></td>
                                                 </tr>
                                             )}
                                             <tr style={{ background: 'var(--primary-50)', fontWeight: 700, fontSize: '1.1rem' }}>
-                                                <td colSpan={4} style={{ textAlign: 'right' }}>Total</td>
+                                                <td colSpan={5} style={{ textAlign: 'right' }}>Total</td>
                                                 <td style={{ textAlign: 'right', color: 'var(--primary-600)' }}>{formatCurrency(grandTotal)}</td>
                                                 <td></td>
                                             </tr>
@@ -339,7 +294,7 @@ export default function CreateBillPage() {
                                     rows={4}
                                     value={memo}
                                     onChange={e => setMemo(e.target.value)}
-                                    placeholder="Add a note..."
+                                    placeholder="Tambahkan catatan..."
                                 />
                             </div>
                         </div>
@@ -347,9 +302,30 @@ export default function CreateBillPage() {
                 </form>
 
                 {/* Overlay for dropdown */}
-                {(activeLineId || showSupplierDropdown) && (
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => { setActiveLineId(null); setShowSupplierDropdown(false); }} />
-                )}
+                <SelectSupplierModal
+                    isOpen={isSupplierModalOpen}
+                    onClose={() => setIsSupplierModalOpen(false)}
+                    onSelect={(s) => {
+                        setSelectedSupplier(s);
+                        setIsSupplierModalOpen(false);
+                        if (s.termsDays) {
+                            const d = new Date(billDate);
+                            d.setDate(d.getDate() + s.termsDays);
+                            setDueDate(d.toISOString().split('T')[0]);
+                        }
+                    }}
+                />
+
+                <SelectItemModal
+                    isOpen={isItemModalOpen}
+                    onClose={() => setIsItemModalOpen(false)}
+                    onSelect={(item) => {
+                        if (activeLineId) {
+                            selectItem(activeLineId, item);
+                            setIsItemModalOpen(false);
+                        }
+                    }}
+                />
             </main>
         </div>
     );

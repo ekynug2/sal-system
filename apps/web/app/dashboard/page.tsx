@@ -93,9 +93,9 @@ export default function DashboardPage() {
             <main className="main-content">
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Dashboard</h1>
+                        <h1 className="page-title">Dasbor</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            Welcome back, {user.fullName}
+                            Selamat datang kembali, {user.fullName}
                         </p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
@@ -116,33 +116,33 @@ export default function DashboardPage() {
                     </div>
                 ) : error ? (
                     <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                        Failed to load dashboard data. Please try again.
+                        Gagal memuat data dasbor. Silakan coba lagi.
                     </div>
                 ) : (
                     <div className="stats-grid">
                         <StatCard
-                            label="Total Sales (This Month)"
+                            label="Total Penjualan (Bulan Ini)"
                             value={formatCurrency(stats?.totalSalesThisMonth || 0)}
                             change={stats?.salesGrowth || 0}
                             icon={<DollarSign size={24} />}
                             color="var(--primary-500)"
                         />
                         <StatCard
-                            label="Outstanding Receivables"
+                            label="Piutang Belum Lunas"
                             value={formatCurrency(stats?.outstandingReceivables || 0)}
                             change={stats?.receivablesChange || 0}
                             icon={<FileText size={24} />}
                             color="var(--accent-yellow)"
                         />
                         <StatCard
-                            label="Inventory Value"
+                            label="Nilai Inventaris"
                             value={formatCurrency(stats?.inventoryValue || 0)}
                             change={stats?.inventoryChange || 0}
                             icon={<Package size={24} />}
                             color="var(--accent-green)"
                         />
                         <StatCard
-                            label="Active Customers"
+                            label="Pelanggan Aktif"
                             value={formatNumber(stats?.activeCustomers || 0)}
                             change={stats?.customersChange || 0}
                             icon={<Users size={24} />}
@@ -155,13 +155,13 @@ export default function DashboardPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--space-6)', marginTop: 'var(--space-6)' }}>
                     <div className="card">
                         <div className="card-header">
-                            <h3 className="card-title">Recent Invoices</h3>
+                            <h3 className="card-title">Faktur Terbaru</h3>
                             <button
                                 className="btn btn-ghost"
                                 style={{ fontSize: '0.875rem' }}
                                 onClick={() => router.push('/sales/invoices')}
                             >
-                                View All <ArrowUpRight size={14} />
+                                Lihat Semua <ArrowUpRight size={14} />
                             </button>
                         </div>
                         {isLoading ? (
@@ -172,17 +172,17 @@ export default function DashboardPage() {
                             </div>
                         ) : recentInvoices.length === 0 ? (
                             <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                No recent invoices
+                                Tidak ada faktur terbaru
                             </div>
                         ) : (
                             <div className="table-container" style={{ border: 'none' }}>
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>Invoice #</th>
-                                            <th>Customer</th>
-                                            <th>Date</th>
-                                            <th>Amount</th>
+                                            <th>No. Faktur</th>
+                                            <th>Pelanggan</th>
+                                            <th>Tanggal</th>
+                                            <th>Jumlah</th>
                                             <th>Status</th>
                                         </tr>
                                     </thead>
@@ -212,7 +212,7 @@ export default function DashboardPage() {
 
                     <div className="card">
                         <div className="card-header">
-                            <h3 className="card-title">Low Stock Alert</h3>
+                            <h3 className="card-title">Peringatan Stok Rendah</h3>
                         </div>
                         {isLoading ? (
                             <div style={{ padding: 'var(--space-4)' }}>
@@ -222,7 +222,7 @@ export default function DashboardPage() {
                             </div>
                         ) : lowStockItems.length === 0 ? (
                             <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                No low stock items
+                                Tidak ada barang stok rendah
                             </div>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -257,23 +257,23 @@ export default function DashboardPage() {
 
                 {/* Quick Actions */}
                 <div className="card" style={{ marginTop: 'var(--space-6)' }}>
-                    <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Quick Actions</h3>
+                    <h3 className="card-title" style={{ marginBottom: 'var(--space-4)' }}>Aksi Cepat</h3>
                     <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
                         <button className="btn btn-primary" onClick={() => router.push('/sales/invoices/new')}>
                             <FileText size={18} />
-                            New Invoice
+                            Faktur Baru
                         </button>
                         <button className="btn btn-secondary" onClick={() => router.push('/purchases/receipts/new')}>
                             <Package size={18} />
-                            Receive Items
+                            Terima Barang
                         </button>
                         <button className="btn btn-secondary" onClick={() => router.push('/sales/payments/new')}>
                             <DollarSign size={18} />
-                            Receive Payment
+                            Terima Pembayaran
                         </button>
                         <button className="btn btn-secondary" onClick={() => router.push('/reports')}>
                             <TrendingUp size={18} />
-                            View Reports
+                            Lihat Laporan
                         </button>
                     </div>
                 </div>
@@ -306,7 +306,7 @@ function StatCard({
                     {change !== 0 && (
                         <div className={`stat-change ${isPositive ? 'positive' : 'negative'}`}>
                             {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                            {Math.abs(change)}% vs last month
+                            {Math.abs(change)}% vs bulan lalu
                         </div>
                     )}
                 </div>

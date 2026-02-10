@@ -106,7 +106,7 @@ export async function createJournalEntry(
 
     // Insert journal lines (Bulk)
     if (input.lines.length > 0) {
-        const lineValues: any[] = [];
+        const lineValues: (string | number | null)[] = [];
         const placeholders = input.lines.map((line, i) => {
             lineValues.push(
                 journalEntryId,

@@ -59,6 +59,14 @@ export async function apiPost<T>(endpoint: string, body?: unknown): Promise<T> {
     return handleResponse<T>(response);
 }
 
+export async function apiPostMultipart<T>(endpoint: string, formData: FormData): Promise<T> {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        body: formData,
+    });
+    return handleResponse<T>(response);
+}
+
 export async function apiPut<T>(endpoint: string, body?: unknown): Promise<T> {
     const response = await fetch(`${API_BASE}${endpoint}`, {
         method: 'PUT',

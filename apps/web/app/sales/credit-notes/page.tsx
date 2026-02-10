@@ -55,16 +55,16 @@ export default function SalesCreditNotesPage() {
                 <Sidebar />
                 <main className="main-content">
                     <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                        <h3>Permission Denied</h3>
-                        <p>You do not have permission to view credit notes.</p>
+                        <h3>Akses Ditolak</h3>
+                        <p>Anda tidak memiliki izin untuk melihat nota kredit.</p>
                     </div>
                 </main>
             </div>
         );
     }
 
-    const creditNotes = data?.data || [];
-    const meta = data?.meta;
+    const creditNotes = data || [];
+    // TODO: Re-implement pagination when API client returns meta
 
     return (
         <div className="app-layout">
@@ -72,14 +72,14 @@ export default function SalesCreditNotesPage() {
             <main className="main-content">
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Sales Credit Notes</h1>
+                        <h1 className="page-title">Nota Kredit Penjualan</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            Manage customer returns and credit adjustments
+                            Kelola retur pelanggan dan penyesuaian kredit
                         </p>
                     </div>
                     <button className="btn btn-primary" onClick={() => router.push('/sales/credit-notes/new')}>
                         <Plus size={18} />
-                        New Credit Note
+                        Nota Kredit Baru
                     </button>
                 </div>
 
@@ -99,7 +99,7 @@ export default function SalesCreditNotesPage() {
                             />
                             <input
                                 type="text"
-                                placeholder="Search by credit note number or customer..."
+                                placeholder="Cari berdasarkan nomor nota kredit atau pelanggan..."
                                 onChange={() => {
                                     // Implement search logic if supported by API/hook
                                 }}
@@ -111,10 +111,10 @@ export default function SalesCreditNotesPage() {
                             onChange={(e) => setStatusFilter(e.target.value)}
                             style={{ width: 180 }}
                         >
-                            <option value="">All Status</option>
+                            <option value="">Semua Status</option>
                             <option value="DRAFT">Draft</option>
-                            <option value="POSTED">Posted</option>
-                            <option value="VOIDED">Voided</option>
+                            <option value="POSTED">Diposting</option>
+                            <option value="VOIDED">Dibatalkan</option>
                         </select>
                         <button className="btn btn-secondary">
                             <Filter size={18} />
@@ -128,18 +128,18 @@ export default function SalesCreditNotesPage() {
                     {isLoading ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto' }} />
-                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Loading credit notes...</p>
+                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Memuat nota kredit...</p>
                         </div>
                     ) : error ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                            Failed to load credit notes. Please try again.
+                            Gagal memuat nota kredit. Silakan coba lagi.
                         </div>
                     ) : creditNotes.length === 0 ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <FileText size={48} style={{ color: 'var(--text-muted)', margin: '0 auto' }} />
-                            <h3 style={{ marginTop: 'var(--space-4)' }}>No credit notes found</h3>
+                            <h3 style={{ marginTop: 'var(--space-4)' }}>Tidak ada nota kredit ditemukan</h3>
                             <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-2)' }}>
-                                Create your first credit note to get started
+                                Buat nota kredit pertama Anda untuk memulai
                             </p>
                             <button
                                 className="btn btn-primary"
@@ -147,7 +147,7 @@ export default function SalesCreditNotesPage() {
                                 onClick={() => router.push('/sales/credit-notes/new')}
                             >
                                 <Plus size={18} />
-                                New Credit Note
+                                Nota Kredit Baru
                             </button>
                         </div>
                     ) : (
@@ -156,11 +156,11 @@ export default function SalesCreditNotesPage() {
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>Credit Note #</th>
-                                            <th>Date</th>
-                                            <th>Customer</th>
-                                            <th>Original Invoice</th>
-                                            <th style={{ textAlign: 'right' }}>Amount</th>
+                                            <th>No. Nota Kredit</th>
+                                            <th>Tanggal</th>
+                                            <th>Pelanggan</th>
+                                            <th>Faktur Asli</th>
+                                            <th style={{ textAlign: 'right' }}>Jumlah</th>
                                             <th>Status</th>
                                             <th style={{ width: 50 }}></th>
                                         </tr>
@@ -207,8 +207,8 @@ export default function SalesCreditNotesPage() {
                                 </table>
                             </div>
 
-                            {/* Pagination */}
-                            {meta && (
+                            {/* Pagination - TODO: Re-implement when API returns meta */}
+                            {creditNotes.length > 0 && (
                                 <div
                                     style={{
                                         display: 'flex',
@@ -219,8 +219,7 @@ export default function SalesCreditNotesPage() {
                                     }}
                                 >
                                     <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                        Showing {(page - 1) * meta.limit + 1} - {Math.min(page * meta.limit, meta.total)} of{' '}
-                                        {meta.total} records
+                                        Menampilkan {creditNotes.length} data
                                     </span>
                                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                                         <button
@@ -238,12 +237,12 @@ export default function SalesCreditNotesPage() {
                                                 fontWeight: 500,
                                             }}
                                         >
-                                            {page} / {meta.totalPages}
+                                            Halaman {page}
                                         </span>
                                         <button
                                             className="btn btn-secondary"
-                                            onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                                            disabled={page >= meta.totalPages}
+                                            onClick={() => setPage((p) => p + 1)}
+                                            disabled={creditNotes.length < 20}
                                         >
                                             <ChevronRight size={18} />
                                         </button>

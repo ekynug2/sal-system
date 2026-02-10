@@ -286,7 +286,7 @@ export async function createPurchaseBill(
         let lineNo = 1;
         // 4. Insert Lines (Bulk)
         if (linesWithCalc.length > 0) {
-            const lineValues: any[] = [];
+            const lineValues: (string | number | null)[] = [];
             const placeholders = linesWithCalc.map(line => {
                 lineValues.push(
                     billId,
@@ -557,7 +557,7 @@ export async function createPurchasePayment(
         // 5. Create Allocations & Update Bills
         if (input.allocations.length > 0) {
             // Bulk Insert Allocations
-            const allocValues: any[] = [];
+            const allocValues: (string | number | null)[] = [];
             const placeholders = input.allocations.map(alloc => {
                 allocValues.push(paymentId, alloc.billId, alloc.amount);
                 return '(?, ?, ?)';

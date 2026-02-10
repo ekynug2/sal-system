@@ -84,31 +84,31 @@ export default function StockOnHandPage() {
             <main className="main-content">
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Stock On Hand</h1>
+                        <h1 className="page-title">Stok Tersedia</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            Real-time inventory levels and valuation
+                            Level inventaris dan penilaian real-time
                         </p>
                     </div>
                     <button className="btn btn-secondary">
                         <Download size={18} />
-                        Export
+                        Ekspor
                     </button>
                 </div>
 
                 {/* Stats */}
                 <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
                     <div className="stat-card">
-                        <div className="stat-label">Total SKUs</div>
+                        <div className="stat-label">Total SKU</div>
                         <div className="stat-value">{formatNumber(stock.length)}</div>
                     </div>
                     <div className="stat-card">
-                        <div className="stat-label">Total Inventory Value</div>
+                        <div className="stat-label">Total Nilai Persediaan</div>
                         <div className="stat-value">{formatCurrency(totalValue)}</div>
                     </div>
                     <div className="stat-card" style={{ borderLeft: lowStockItems.length > 0 ? '4px solid var(--accent-red)' : undefined }}>
                         <div className="stat-label" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                             {lowStockItems.length > 0 && <AlertTriangle size={16} color="var(--accent-red)" />}
-                            Low Stock Items
+                            Barang Stok Rendah
                         </div>
                         <div className="stat-value" style={{ color: lowStockItems.length > 0 ? 'var(--accent-red)' : 'inherit' }}>
                             {lowStockItems.length}
@@ -131,7 +131,7 @@ export default function StockOnHandPage() {
                         />
                         <input
                             type="text"
-                            placeholder="Search by SKU or item name..."
+                            placeholder="Cari berdasarkan SKU atau nama barang..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             style={{ paddingLeft: 42 }}
@@ -144,18 +144,18 @@ export default function StockOnHandPage() {
                     {isLoading ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto' }} />
-                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Loading stock...</p>
+                            <p style={{ marginTop: 'var(--space-4)', color: 'var(--text-secondary)' }}>Memuat stok...</p>
                         </div>
                     ) : error ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--accent-red)' }}>
-                            Failed to load stock data. Please try again.
+                            Gagal memuat data stok. Silakan coba lagi.
                         </div>
                     ) : stock.length === 0 ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Package size={48} style={{ color: 'var(--text-muted)', margin: '0 auto' }} />
-                            <h3 style={{ marginTop: 'var(--space-4)' }}>No items found</h3>
+                            <h3 style={{ marginTop: 'var(--space-4)' }}>Tidak ada barang ditemukan</h3>
                             <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-2)' }}>
-                                {search ? 'Try adjusting your search' : 'Add items to track inventory'}
+                                {search ? 'Coba sesuaikan pencarian Anda' : 'Tambahkan barang untuk melacak inventaris'}
                             </p>
                         </div>
                     ) : (
@@ -169,20 +169,20 @@ export default function StockOnHandPage() {
                                                 {sortBy === 'sku' && <ArrowUpDown size={14} />}
                                             </span>
                                         </th>
-                                        <th>Item Name</th>
+                                        <th>Nama Barang</th>
                                         <th onClick={() => toggleSort('onHand')} style={{ cursor: 'pointer', textAlign: 'right' }}>
                                             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
-                                                On Hand
+                                                Tersedia
                                                 {sortBy === 'onHand' && <ArrowUpDown size={14} />}
                                             </span>
                                         </th>
-                                        <th style={{ textAlign: 'right' }}>On Order</th>
-                                        <th style={{ textAlign: 'right' }}>Committed</th>
-                                        <th style={{ textAlign: 'right' }}>Available</th>
-                                        <th style={{ textAlign: 'right' }}>Avg Cost</th>
+                                        <th style={{ textAlign: 'right' }}>Dipesan</th>
+                                        <th style={{ textAlign: 'right' }}>Dialokasikan</th>
+                                        <th style={{ textAlign: 'right' }}>Dapat Dijual</th>
+                                        <th style={{ textAlign: 'right' }}>Biaya Rata-rata</th>
                                         <th onClick={() => toggleSort('value')} style={{ cursor: 'pointer', textAlign: 'right' }}>
                                             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
-                                                Value
+                                                Nilai
                                                 {sortBy === 'value' && <ArrowUpDown size={14} />}
                                             </span>
                                         </th>
@@ -233,7 +233,7 @@ export default function StockOnHandPage() {
                                 <tfoot>
                                     <tr style={{ background: 'var(--bg-tertiary)' }}>
                                         <th colSpan={7} style={{ textAlign: 'right', fontWeight: 600 }}>
-                                            Total Value:
+                                            Total Nilai:
                                         </th>
                                         <th className="money" style={{ textAlign: 'right', fontWeight: 700 }}>
                                             {formatCurrency(totalValue)}

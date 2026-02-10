@@ -8,8 +8,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/ui/providers/auth-provider';
 import { Sidebar } from '@/ui/components/sidebar';
+import { ExportPrintToolbar } from '@/ui/components/export-print-toolbar';
 import { usePurchaseBills } from '@/hooks/use-purchases';
 import { formatDate, formatCurrency } from '@/lib/api-client';
+import { exportToExcel, exportToCSV, type ExportColumn } from '@/lib/export-utils';
+import { printHTML, generatePrintTable } from '@/lib/print-utils';
+import type { PurchaseBill } from '@/shared/types';
 import {
     Plus,
     Loader2,
@@ -36,8 +40,52 @@ export default function PurchaseBillsPage() {
         return null;
     }
 
-    const bills = billsData?.data || [];
-    const meta = billsData?.meta;
+    const bills = billsData || [];
+
+    // Export column definitions
+    const exportColumns: ExportColumn<PurchaseBill>[] = [
+        { header: 'No. Tagihan', accessor: 'billNo', width: 15 },
+        { header: 'Pemasok', accessor: 'supplierName', width: 25 },
+        { header: 'Ref. Pemasok', accessor: 'supplierInvoiceNo', width: 15 },
+        { header: 'Tanggal', accessor: (row) => formatDate(row.billDate), width: 12 },
+        { header: 'Jatuh Tempo', accessor: (row) => formatDate(row.dueDate), width: 12 },
+        { header: 'Total Akhir', accessor: 'grandTotal', width: 15 },
+        { header: 'Dibayar', accessor: 'paidAmount', width: 15 },
+        { header: 'Saldo Hutang', accessor: 'balanceDue', width: 15 },
+        { header: 'Status', accessor: 'status', width: 12 },
+    ];
+
+    function handleExportExcel() {
+        exportToExcel(bills, exportColumns, {
+            filename: `tagihan_pembelian_${new Date().toISOString().split('T')[0]}`,
+            sheetName: 'Tagihan',
+        });
+    }
+
+    function handleExportCSV() {
+        exportToCSV(bills, exportColumns, {
+            filename: `tagihan_pembelian_${new Date().toISOString().split('T')[0]}`,
+        });
+    }
+
+    function handlePrint() {
+        const printColumns = [
+            { header: 'No. Tagihan', accessor: 'billNo' as keyof PurchaseBill },
+            { header: 'Pemasok', accessor: 'supplierName' as keyof PurchaseBill },
+            { header: 'Tanggal', accessor: (row: PurchaseBill) => formatDate(row.billDate) },
+            { header: 'Jatuh Tempo', accessor: (row: PurchaseBill) => formatDate(row.dueDate) },
+            { header: 'Jumlah', accessor: (row: PurchaseBill) => formatCurrency(row.grandTotal), className: 'money' },
+            { header: 'Saldo', accessor: (row: PurchaseBill) => formatCurrency(row.balanceDue), className: 'money' },
+            { header: 'Status', accessor: 'status' as keyof PurchaseBill },
+        ];
+
+        const html = generatePrintTable(bills, printColumns, {
+            title: 'Tagihan Pembelian',
+            subtitle: 'Semua Tagihan',
+        });
+
+        printHTML(html, 'Tagihan Pembelian');
+    }
 
     return (
         <div className="app-layout">
@@ -46,24 +94,31 @@ export default function PurchaseBillsPage() {
                 {/* Header */}
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Purchase Bills</h1>
+                        <h1 className="page-title">Tagihan Pembelian</h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                            Manage supplier bills and accounts payable
+                            Kelola tagihan pemasok dan hutang usaha
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        <ExportPrintToolbar
+                            onPrint={handlePrint}
+                            onExportExcel={handleExportExcel}
+                            onExportCSV={handleExportCSV}
+                            showPrint={bills.length > 0}
+                            showExport={bills.length > 0}
+                        />
                         <button
                             className="btn btn-secondary"
                             onClick={() => router.push('/purchases/payments/new')}
                         >
-                            Record Payment
+                            Catat Pembayaran
                         </button>
                         <button
                             className="btn btn-primary"
                             onClick={() => router.push('/purchases/bills/new')}
                         >
                             <Plus size={18} />
-                            New Bill
+                            Tagihan Baru
                         </button>
                     </div>
                 </div>
@@ -73,14 +128,14 @@ export default function PurchaseBillsPage() {
                     {isLoading ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <Loader2 className="animate-spin" size={32} style={{ margin: '0 auto', color: 'var(--primary-500)' }} />
-                            <p style={{ marginTop: 'var(--space-2)', color: 'var(--text-secondary)' }}>Loading bills...</p>
+                            <p style={{ marginTop: 'var(--space-2)', color: 'var(--text-secondary)' }}>Memuat tagihan...</p>
                         </div>
                     ) : bills.length === 0 ? (
                         <div style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
                             <FileText size={48} style={{ margin: '0 auto', color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }} />
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>No Bills Found</h3>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>Tidak Ada Tagihan Ditemukan</h3>
                             <p style={{ color: 'var(--text-secondary)', maxWidth: 400, margin: 'var(--space-2) auto' }}>
-                                Start by recording a new bill from a supplier.
+                                Mulai dengan mencatat tagihan baru dari pemasok.
                             </p>
                             <button
                                 className="btn btn-primary"
@@ -88,7 +143,7 @@ export default function PurchaseBillsPage() {
                                 style={{ marginTop: 'var(--space-4)' }}
                             >
                                 <Plus size={18} />
-                                Create New Bill
+                                Buat Tagihan Baru
                             </button>
                         </div>
                     ) : (
@@ -97,13 +152,13 @@ export default function PurchaseBillsPage() {
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>Bill #</th>
-                                            <th>Supplier</th>
-                                            <th>Date</th>
-                                            <th>Due Date</th>
-                                            <th style={{ textAlign: 'right' }}>Amount</th>
+                                            <th>No. Tagihan</th>
+                                            <th>Pemasok</th>
+                                            <th>Tanggal</th>
+                                            <th>Jatuh Tempo</th>
+                                            <th style={{ textAlign: 'right' }}>Jumlah</th>
                                             <th style={{ textAlign: 'center' }}>Status</th>
-                                            <th style={{ textAlign: 'right' }}>Balance Due</th>
+                                            <th style={{ textAlign: 'right' }}>Saldo Hutang</th>
                                             <th style={{ width: 60 }}></th>
                                         </tr>
                                     </thead>
@@ -151,8 +206,8 @@ export default function PurchaseBillsPage() {
                                 </table>
                             </div>
 
-                            {/* Pagination */}
-                            {meta && meta.totalPages > 1 && (
+                            {/* Pagination - TODO: Re-implement when API returns meta */}
+                            {bills.length > 0 && (
                                 <div style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)',
                                     padding: 'var(--space-4)', borderTop: '1px solid var(--border-color)'
@@ -165,11 +220,11 @@ export default function PurchaseBillsPage() {
                                         <ChevronLeft size={16} />
                                     </button>
                                     <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
-                                        Page {page} of {meta.totalPages}
+                                        Halaman {page}
                                     </span>
                                     <button
                                         className="btn btn-secondary"
-                                        disabled={page === meta.totalPages}
+                                        disabled={bills.length < 20}
                                         onClick={() => setPage(page + 1)}
                                     >
                                         <ChevronRight size={16} />
